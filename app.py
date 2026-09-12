@@ -21,9 +21,8 @@ import io
 from supabase import create_client, Client
 import secrets
 import hashlib
-import smtplib
-from email.message import EmailMessage
 from urllib.parse import quote
+import requests
 
 # ============================================================
 # ENVIRONMENT VARIABLES
@@ -177,47 +176,45 @@ def send_password_reset_email(
     reset_url,
 ):
     """
-    Send a password-reset email using SMTP.
+    Send a password-reset email using the Mailjet HTTPS API.
 
     Required environment variables:
 
-        SMTP_HOST
-        SMTP_PORT
-        SMTP_USERNAME
-        SMTP_PASSWORD
+        MAILJET_API_KEY
+        MAILJET_SECRET_KEY
     """
 
-    smtp_host = os.getenv("SMTP_HOST")
-
-    smtp_port = int(
-        os.getenv(
-            "SMTP_PORT",
-            "465",
-        )
-    )
-
-    smtp_username = os.getenv("SMTP_USERNAME")
-
-    smtp_password = os.getenv("SMTP_PASSWORD")
+    mailjet_api_key = os.getenv("MAILJET_API_KEY")
+    mailjet_secret_key = os.getenv("MAILJET_SECRET_KEY")
 
     if not all(
         [
-            smtp_host,
-            smtp_username,
-            smtp_password,
+            mailjet_api_key,
+            mailjet_secret_key,
         ]
     ):
-        raise RuntimeError("SMTP configuration is incomplete.")
+        raise RuntimeError("Mailjet API configuration is incomplete.")
 
-    message = EmailMessage()
-
-    message["Subject"] = "Academic Relay - Password Reset"
-
-    message["From"] = smtp_username
-
-    message["To"] = recipient_email
-
-    message.set_content(f"""Hello,
+    response = requests.post(
+        "https://api.mailjet.com/v3.1/send",
+        auth=(
+            mailjet_api_key,
+            mailjet_secret_key,
+        ),
+        json={
+            "Messages": [
+                {
+                    "From": {
+                        "Email": "academicrelay.ar@gmail.com",
+                        "Name": "Academic Relay",
+                    },
+                    "To": [
+                        {
+                            "Email": recipient_email,
+                        }
+                    ],
+                    "Subject": "Academic Relay - Password Reset",
+                    "TextPart": f"""Hello,
 
 We received a request to reset your Academic Relay password.
 
@@ -231,19 +228,19 @@ If you did not request a password reset, you can safely ignore this email.
 
 Regards,
 Academic Relay
-""")
+""",
+                }
+            ]
+        },
+        timeout=15,
+    )
 
-    with smtplib.SMTP_SSL(
-        smtp_host,
-        smtp_port,
-    ) as smtp:
-
-        smtp.login(
-            smtp_username,
-            smtp_password,
+    if not response.ok:
+        raise RuntimeError(
+            "Mailjet email sending failed: "
+            f"{response.status_code} "
+            f"{response.text}"
         )
-
-        smtp.send_message(message)
 
 
 # ============================================================

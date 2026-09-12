@@ -1,0 +1,1370 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>View Internal Marks - Academic Relay</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/ar_logo.png') }}">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+        :root {
+            --navy-900: #0d47a1;
+            --navy-700: #1976d2;
+            --accent: #64b5f6;
+            --bg: #e9f4ff;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            background: linear-gradient(180deg, var(--navy-900), var(--navy-700));
+            min-height: 100vh;
+            color: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: rotate 30s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .sidebar-header {
+            padding: 30px 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 2;
+        }
+
+        .sidebar-header img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+        }
+
+        .sidebar-header img:hover {
+            transform: scale(1.05);
+            border-color: white;
+        }
+
+        .sidebar-header h4 {
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .user-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            display: inline-block;
+            margin-top: 10px;
+            max-width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            transition: all 0.3s ease;
+        }
+
+        .user-badge:hover {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            word-break: break-word;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .user-badge i {
+            margin-right: 8px;
+            color: var(--accent);
+        }
+
+        .faculty-badge,
+        .student-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        .nav-link-sidebar {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 25px;
+            margin: 5px 0;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+            cursor: pointer;
+        }
+
+        .nav-link-sidebar:hover,
+        .nav-link-sidebar.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: white;
+            transform: translateX(5px);
+        }
+
+        .nav-link-sidebar i {
+            width: 25px;
+            margin-right: 10px;
+            font-size: 1.1rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 30px;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        .top-bar {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(13, 71, 161, 0.05);
+        }
+
+        .page-title h1 {
+            font-size: 1.8rem;
+            color: var(--navy-900);
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .page-title i {
+            color: var(--navy-700);
+            margin-right: 10px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-info span {
+            color: #666;
+            background: #f8f9fa;
+            padding: 8px 15px;
+            border-radius: 50px;
+            font-size: 0.95rem;
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(13, 71, 161, 0.2);
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(13, 71, 161, 0.3);
+        }
+
+        /* PIN Search Section */
+        .pin-search-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(13, 71, 161, 0.05);
+            margin-bottom: 30px;
+        }
+
+        .pin-search-title {
+            font-size: 1.5rem;
+            color: var(--navy-900);
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .pin-search-title i {
+            color: var(--navy-700);
+            margin-right: 10px;
+        }
+
+        .pin-input-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .pin-input {
+            flex: 1;
+            min-width: 300px;
+            padding: 15px 20px;
+            border: 2px solid rgba(13, 71, 161, 0.1);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .pin-input:focus {
+            border-color: var(--navy-700);
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+            outline: none;
+        }
+
+        .search-btn {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 15px 35px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(13, 71, 161, 0.3);
+        }
+
+        .reset-btn {
+            background: transparent;
+            color: var(--navy-900);
+            border: 2px solid rgba(13, 71, 161, 0.2);
+            border-radius: 12px;
+            padding: 15px 35px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .reset-btn:hover {
+            background: rgba(13, 71, 161, 0.05);
+            border-color: var(--navy-700);
+            transform: translateY(-2px);
+        }
+
+        /* Results Card */
+        .results-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(13, 71, 161, 0.1);
+            margin-top: 20px;
+            animation: slideUp 0.5s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .results-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--navy-700), var(--accent), var(--navy-900));
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .student-info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(13, 71, 161, 0.1);
+        }
+
+        .student-badge-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .student-pin-badge {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .student-name-badge {
+            background: rgba(100, 181, 246, 0.2);
+            color: var(--navy-900);
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .summary-stats {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .stat-pill {
+            background: #f8f9fa;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-weight: 500;
+            color: #666;
+        }
+
+        .stat-pill i {
+            color: var(--navy-700);
+            margin-right: 8px;
+        }
+
+        .stat-pill strong {
+            color: var(--navy-900);
+            margin-left: 5px;
+        }
+
+        /* Analytics Button */
+        .analytics-btn {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 10px 25px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 15px 0;
+        }
+
+        .analytics-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 71, 161, 0.3);
+        }
+
+        .analytics-btn i {
+            font-size: 0.9rem;
+        }
+
+        /* No Results */
+        .no-results {
+            text-align: center;
+            padding: 50px 20px;
+            color: #999;
+        }
+
+        .no-results i {
+            font-size: 4rem;
+            color: #ddd;
+            margin-bottom: 15px;
+        }
+
+        /* Chart Title */
+        .chart-title {
+            color: var(--navy-900);
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .chart-title i {
+            color: var(--navy-700);
+            margin-right: 8px;
+        }
+
+        /* Fix for table overflow */
+        .table-section {
+            border-radius: 15px;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-width: 100%;
+            margin: 0 auto;
+            height: 460px;
+            border: 1px solid rgba(13, 71, 161, 0.1);
+            scrollbar-width: thin;
+            scrollbar-color: var(--navy-700) #f0f0f0;
+        }
+
+        .table-section::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .table-section::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .table-section::-webkit-scrollbar-thumb {
+            background: var(--navy-700);
+            border-radius: 10px;
+        }
+
+        .table-section::-webkit-scrollbar-thumb:hover {
+            background: var(--navy-900);
+        }
+
+        .table {
+            margin-bottom: 0;
+            width: 100%;
+            min-width: 900px;
+        }
+
+        .table th {
+            background: rgba(13, 71, 161, 0.05);
+            color: var(--navy-900);
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 15px 12px;
+            border-bottom: 2px solid rgba(13, 71, 161, 0.1);
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .table td {
+            vertical-align: middle;
+            color: #666;
+            padding: 12px;
+            border-bottom: 1px solid rgba(13, 71, 161, 0.05);
+        }
+
+        /* Allow subject name to wrap */
+        .table td:nth-child(2) {
+            white-space: normal;
+            min-width: 220px;
+            max-width: 300px;
+            word-break: break-word;
+        }
+
+        /* Code column */
+        .table td:first-child {
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .table tbody tr:hover {
+            background: rgba(13, 71, 161, 0.02);
+        }
+
+        /* Flip Container */
+        .flip-container {
+            perspective: 1000px;
+            margin-top: 25px;
+            width: 100%;
+            height: 550px;
+        }
+
+        .flip-card {
+            position: relative;
+            width: 100%;
+            height: 550px;
+            transition: transform 0.8s;
+            transform-style: preserve-3d;
+        }
+
+        .flip-card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .flip-front,
+        .flip-back {
+            position: absolute;
+            width: 100%;
+            height: 550px;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            border-radius: 15px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(13, 71, 161, 0.1);
+            padding: 20px;
+        }
+
+        .flip-front {
+            transform: rotateY(0deg);
+        }
+
+        .flip-back {
+            transform: rotateY(180deg);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin: 5px 0 10px;
+            flex-shrink: 0;
+        }
+
+        /* Stats Message */
+        .stats-message {
+            background: rgba(13, 71, 161, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: center;
+            color: var(--navy-900);
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            width: 100%;
+            max-height: 100px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .stats-highlight {
+            color: var(--navy-700);
+            font-weight: 600;
+        }
+
+        /* Filter Section */
+        .filter-section {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(13, 71, 161, 0.05);
+        }
+
+        .filter-select {
+            padding: 12px 25px;
+            border: 2px solid rgba(13, 71, 161, 0.1);
+            border-radius: 10px;
+            color: var(--navy-900);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            min-width: 150px;
+            flex: 1;
+        }
+
+        .filter-select:hover {
+            border-color: var(--navy-700);
+        }
+
+        .btn-filter {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-filter:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 71, 161, 0.3);
+        }
+
+        /* Mobile Sidebar Styles - Added from upload_marks.html */
+        .sidebar-toggle-btn {
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1050;
+            background: linear-gradient(135deg, var(--navy-900), var(--navy-700));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            width: 44px;
+            height: 44px;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 15px rgba(13, 71, 161, 0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            box-shadow: 0 6px 20px rgba(13, 71, 161, 0.5);
+            transform: scale(1.05);
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1040;
+            backdrop-filter: blur(2px);
+        }
+
+        /* Responsive adjustments - Mobile */
+        @media (max-width: 991.98px) {
+            .sidebar-toggle-btn {
+                display: flex;
+            }
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 260px;
+                height: 100%;
+                z-index: 1045;
+                transform: translateX(-100%);
+                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+                min-height: 100%;
+                overflow-y: auto;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.active {
+                display: block;
+            }
+
+            .col-md-9.col-lg-10.main-content {
+                width: 100% !important;
+                max-width: 100% !important;
+                flex: 0 0 100% !important;
+                padding-top: 70px;
+            }
+
+            .col-md-3.col-lg-2.px-0.sidebar {
+                width: 260px !important;
+                max-width: 260px !important;
+                flex: none !important;
+            }
+
+            .top-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .user-info span {
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .filter-section {
+                flex-direction: column;
+            }
+
+            .filter-select {
+                width: 100%;
+            }
+
+            .pin-input-group {
+                flex-direction: column;
+            }
+
+            .search-btn,
+            .reset-btn {
+                width: 100%;
+            }
+
+            .stats-message {
+                flex-direction: column;
+                gap: 8px;
+                max-height: 120px;
+            }
+
+            .chart-container {
+                height: 280px;
+            }
+
+            .flip-container,
+            .flip-card,
+            .flip-front,
+            .flip-back {
+                height: 650px;
+            }
+
+            .main-content {
+                padding: 15px;
+            }
+
+            .results-card {
+                padding: 20px;
+            }
+
+            .analytics-btn {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .top-bar {
+                padding: 15px;
+            }
+
+            .user-info {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .d-flex.gap-3 {
+                flex-direction: column;
+            }
+        }
+
+        /* Responsive adjustments (original) */
+        @media (max-width: 992px) {
+            .sidebar {
+                min-height: auto;
+            }
+
+            .flip-container,
+            .flip-card,
+            .flip-front,
+            .flip-back {
+                height: 600px;
+            }
+
+            .chart-container {
+                height: 320px;
+            }
+        }
+
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            animation: slideIn 0.5s;
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        a {
+            text-decoration: none !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        <i class="fas fa-{% if category == 'success' %}check-circle{% else %}info-circle{% endif %} me-2"></i>
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Mobile sidebar toggle button -->
+    <button class="sidebar-toggle-btn" id="sidebarToggle" aria-label="Toggle sidebar">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Sidebar overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- PAGE LAYOUT -->
+    <div class="container-fluid">
+        <div class="row">
+
+            <!-- SIDEBAR -->
+            <div class="col-md-3 col-lg-2 px-0 sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <img src="{{ url_for('static', filename='images/ar_logo.png') }}" alt="Logo">
+                    <h4>Welcome,</h4>
+                    <div class="user-badge" title="{{ session.get('email', 'User') }}">
+                        <i class="fas fa-user-circle"></i>
+                        {{ session.get('email', 'User') if session.get('email')|length < 25 else
+                            session.get('email', 'User')[:20] + '...' }}
+                    </div>
+                    {% if session.user_type == 'faculty' %}
+                    <span class="faculty-badge"><i class="fas fa-chalkboard-teacher me-2"></i>Faculty</span>
+                    {% else %}
+                    <span class="student-badge"><i class="fas fa-user-graduate me-2"></i>Student</span>
+                    {% endif %}
+                </div>
+
+                <nav class="nav flex-column">
+                    {% if session.user_type == 'faculty' %}
+                    <a class="nav-link-sidebar" href="{{ url_for('faculty_dashboard') }}">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                    {% endif %}
+                    {% if session.user_type == 'student' %}
+                    <a class="nav-link-sidebar" href="{{ url_for('student_dashboard') }}">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                    {% endif %}
+                    <a class="nav-link-sidebar" href="{{ url_for('announcements') }}">
+                        <i class="fas fa-bullhorn"></i> Announcements
+                    </a>
+                    {% if session.user_type == 'faculty' %}
+                    <a class="nav-link-sidebar" href="{{ url_for('upload_study_material') }}">
+                        <i class="fas fa-upload"></i> Upload Materials
+                    </a>
+                    {% endif %}
+                    <a class="nav-link-sidebar" href="{{ url_for('study_materials') }}">
+                        <i class="fas fa-book"></i> Study Materials
+                    </a>
+                    <a class="nav-link-sidebar" href="{{ url_for('assignments') }}">
+                        <i class="fas fa-tasks"></i> Assignments
+                    </a>
+                    {% if session.user_type == 'faculty' %}
+                    <a class="nav-link-sidebar" href="{{ url_for('upload_marks') }}">
+                        <i class="fas fa-cloud-upload-alt"></i> Upload Marks
+                    </a>
+                    {% endif %}
+                    <a class="nav-link-sidebar active" href="{{ url_for('view_marks') }}">
+                        <i class="fas fa-chart-line"></i> View Marks & Progress
+                    </a>
+                    <a class="nav-link-sidebar" href="{{ url_for('logout') }}">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                </nav>
+            </div>
+            <!-- /SIDEBAR -->
+
+            <!-- MAIN CONTENT -->
+            <div class="col-md-9 col-lg-10 main-content">
+                <div class="top-bar">
+                    <div class="page-title">
+                        <h1><i class="fas fa-eye"></i> View Internal Marks</h1>
+                    </div>
+                    <div class="user-info">
+                        <span><i class="fas fa-user me-2"></i>{{ session.get('email', 'User') }}</span>
+                        <a href="{{ url_for('logout') }}" class="logout-btn">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </div>
+                </div>
+
+                <!-- PIN Search Section -->
+                <div class="pin-search-section">
+                    <h3 class="pin-search-title">
+                        <i class="fas fa-search"></i> Search Student by PIN
+                    </h3>
+
+                    <form method="GET" action="{{ url_for('view_marks') }}" id="pinSearchForm">
+                        <div class="pin-input-group">
+                            <input type="text" name="pin" class="pin-input"
+                                placeholder="Enter Student PIN (e.g., 23261-CS-033)"
+                                value="{{ request.args.get('pin', '') }}" id="pinInput">
+                            <button type="submit" class="search-btn">
+                                <i class="fas fa-search"></i> Show Results
+                            </button>
+                            <a href="{{ url_for('view_marks') }}" class="reset-btn">
+                                <i class="fas fa-times"></i> Clear
+                            </a>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Results Card (Shows only when PIN is searched) -->
+                {% if request.args.get('pin') %}
+                {% set student_marks = marks_list|selectattr('pin', 'equalto', request.args.get('pin'))|list %}
+
+                {% if student_marks and student_marks|length > 0 %}
+                <div class="results-card">
+                    <!-- Student Info Header -->
+                    <div class="student-info-header">
+                        <div class="student-badge-info">
+                            <span class="student-pin-badge">
+                                <i class="fas fa-id-card me-2"></i>{{ student_marks[0].pin }}
+                            </span>
+                            <span class="student-name-badge">
+                                <i class="fas fa-user-graduate me-2"></i>{{ student_marks[0].student_name }}
+                            </span>
+                        </div>
+                        <div class="summary-stats">
+                            <span class="stat-pill">
+                                <i class="fas fa-book"></i> Subjects: <strong>{{ student_marks|length }}</strong>
+                            </span>
+                            <span class="stat-pill">
+                                <i class="fas fa-star"></i> Avg:
+                                <strong>
+                                    {% set total = student_marks|sum(attribute='marks_obtained') %}
+                                    {% set max_total = student_marks|sum(attribute='max_marks') %}
+                                    {{ ((total / max_total) * 100)|round(1) }}%
+                                </strong>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Button -->
+                    <div class="text-center">
+                        <button class="analytics-btn" onclick="window.flipCard()" id="analyticsBtn">
+                            <i class="fas fa-chart-line"></i> View Analytics
+                        </button>
+                    </div>
+
+                    <!-- Flip Container -->
+                    <div class="flip-container">
+                        <div class="flip-card" id="flipCard">
+                            <!-- Front Side - Table -->
+                            <div class="flip-front">
+                                <div class="table-section">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Subject Code</th>
+                                                <th>Subject Name</th>
+                                                <th>Semester</th>
+                                                <th>Marks Obtained</th>
+                                                <th>Max Marks</th>
+                                                <th>Percentage</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for mark in student_marks %}
+                                            <tr>
+                                                <td><code>{{ mark.subject_code }}</code></td>
+                                                <td>{{ mark.subject_name }}</td>
+                                                <td>{{ mark.semester }}</td>
+                                                <td><strong>{{ mark.marks_obtained }}</strong></td>
+                                                <td>{{ mark.max_marks }}</td>
+                                                <td>
+                                                    {% set percentage = (mark.marks_obtained / mark.max_marks * 100)|round(1) %}
+                                                    <span class="badge {% if percentage >= 75 %}bg-success{% elif percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}">
+                                                        {{ percentage }}%
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Back Side - Analytics Chart -->
+                            <div class="flip-back">
+                                <div class="chart-title">
+                                    <i class="fas fa-chart-area"></i> Performance Analytics
+                                </div>
+
+                                <!-- Chart Container -->
+                                <div class="chart-container">
+                                    <canvas id="marksChart"></canvas>
+                                </div>
+
+                                <!-- Stats Message -->
+                                <div class="stats-message" id="statsMessage">
+                                    <!-- Will be filled by JavaScript -->
+                                </div>
+
+                                <!-- Back Button -->
+                                <div class="text-center mt-2">
+                                    <button class="analytics-btn" onclick="window.flipCard()"
+                                        style="background: transparent; color: var(--navy-900); border: 2px solid var(--navy-700); padding: 8px 20px;">
+                                        <i class="fas fa-arrow-left"></i> Back to Table
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                    // Store marks data for JavaScript
+                    const studentMarks = [
+                        {% for mark in student_marks %}
+                        {
+                            subjectCode: "{{ mark.subject_code }}",
+                            subjectName: "{{ mark.subject_name }}",
+                            marks: {{ mark.marks_obtained }},
+                            maxMarks: {{ mark.max_marks }}
+                        }{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ];
+
+                    // Calculate statistics
+                    const marks = studentMarks.map(m => m.marks);
+                    const maxMarks = studentMarks.map(m => m.maxMarks);
+                    const subjectCodes = studentMarks.map(m => m.subjectCode);
+                    const subjectNames = studentMarks.map(m => m.subjectName);
+
+                    const avgMarks = marks.reduce((a, b) => a + b, 0) / marks.length;
+                    const highestMark = Math.max(...marks);
+                    const lowestMark = Math.min(...marks);
+
+                    const highestSubject = studentMarks.find(m => m.marks === highestMark)?.subjectName || 'N/A';
+                    const lowestSubject = studentMarks.find(m => m.marks === lowestMark)?.subjectName || 'N/A';
+
+                    let chart = null;
+
+                    window.createChart = function() {
+                        const canvas = document.getElementById('marksChart');
+                        if (!canvas) return;
+                        
+                        const ctx = canvas.getContext('2d');
+
+                        if (chart) {
+                            chart.destroy();
+                        }
+
+                        const maxValue = Math.max(...maxMarks);
+                        const yAxisMax = Math.ceil(maxValue / 2) * 2;
+
+                        chart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: subjectCodes,
+                                datasets: [
+                                    {
+                                        label: 'Marks Obtained',
+                                        data: marks,
+                                        borderColor: '#1976d2',
+                                        backgroundColor: 'rgba(25, 118, 210, 0.15)',
+                                        borderWidth: 3,
+                                        tension: 0.3,
+                                        fill: true,
+                                        pointBackgroundColor: '#0d47a1',
+                                        pointBorderColor: 'white',
+                                        pointBorderWidth: 2,
+                                        pointRadius: 5,
+                                        pointHoverRadius: 7
+                                    },
+                                    {
+                                        label: 'Average Line',
+                                        data: Array(subjectCodes.length).fill(avgMarks),
+                                        borderColor: '#ff9800',
+                                        borderWidth: 2.5,
+                                        borderDash: [6, 4],
+                                        fill: false,
+                                        pointRadius: 0
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'top',
+                                        labels: {
+                                            color: '#333',
+                                            font: {
+                                                family: 'Poppins',
+                                                size: 11,
+                                                weight: '500'
+                                            },
+                                            usePointStyle: true,
+                                            pointStyle: 'circle',
+                                            boxWidth: 8
+                                        }
+                                    },
+                                    tooltip: {
+                                        backgroundColor: 'white',
+                                        titleColor: '#0d47a1',
+                                        titleFont: {
+                                            family: 'Poppins',
+                                            weight: '600',
+                                            size: 12
+                                        },
+                                        bodyColor: '#666',
+                                        bodyFont: {
+                                            family: 'Poppins',
+                                            size: 11
+                                        },
+                                        borderColor: '#1976d2',
+                                        borderWidth: 2,
+                                        padding: 10,
+                                        callbacks: {
+                                            title: function (context) {
+                                                const index = context[0].dataIndex;
+                                                return subjectNames[index];
+                                            },
+                                            label: function (context) {
+                                                if (context.dataset.label === 'Average Line') {
+                                                    return `Average: ${avgMarks.toFixed(1)} marks`;
+                                                }
+                                                const max = maxMarks[context.dataIndex];
+                                                const percentage = ((context.raw / max) * 100).toFixed(1);
+                                                return `Marks: ${context.raw} / ${max} (${percentage}%)`;
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        min: 0,
+                                        max: yAxisMax,
+                                        grid: {
+                                            color: 'rgba(0, 0, 0, 0.05)',
+                                            drawBorder: true
+                                        },
+                                        title: {
+                                            display: true,
+                                            text: 'Marks',
+                                            color: '#1976d2',
+                                            font: {
+                                                family: 'Poppins',
+                                                size: 11,
+                                                weight: '500'
+                                            }
+                                        },
+                                        ticks: {
+                                            stepSize: 2,
+                                            callback: function (value) {
+                                                return value;
+                                            },
+                                            font: {
+                                                size: 10
+                                            }
+                                        }
+                                    },
+                                    x: {
+                                        grid: {
+                                            display: false
+                                        },
+                                        title: {
+                                            display: true,
+                                            text: 'Subject Code',
+                                            color: '#1976d2',
+                                            font: {
+                                                family: 'Poppins',
+                                                size: 11,
+                                                weight: '500'
+                                            }
+                                        },
+                                        ticks: {
+                                            maxRotation: 30,
+                                            minRotation: 25,
+                                            font: {
+                                                size: 10
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+
+                        const statsMsg = document.getElementById('statsMessage');
+                        if (statsMsg) {
+                            statsMsg.innerHTML = `
+                                <span><i class="fas fa-arrow-up" style="color: #28a745;"></i> <span class="stats-highlight">Highest:</span> ${highestMark} marks in ${highestSubject}</span>
+                                <span><i class="fas fa-arrow-down" style="color: #dc3545;"></i> <span class="stats-highlight">Lowest:</span> ${lowestMark} marks in ${lowestSubject}</span>
+                                <span><i class="fas fa-calculator" style="color: #1976d2;"></i> <span class="stats-highlight">Average:</span> ${avgMarks.toFixed(1)} marks</span>
+                            `;
+                        }
+                    };
+
+                    window.flipCard = function() {
+                        const card = document.getElementById('flipCard');
+                        const btn = document.getElementById('analyticsBtn');
+                        
+                        if (!card) return;
+
+                        if (card.classList.contains('flipped')) {
+                            card.classList.remove('flipped');
+                            if (btn) btn.innerHTML = '<i class="fas fa-chart-line"></i> View Analytics';
+                        } else {
+                            card.classList.add('flipped');
+                            if (btn) btn.innerHTML = '<i class="fas fa-table"></i> View Table';
+                            setTimeout(() => {
+                                if (typeof window.createChart === 'function') {
+                                    window.createChart();
+                                }
+                            }, 100);
+                        }
+                    };
+                </script>
+                {% else %}
+                <!-- No Results Found -->
+                <div class="results-card">
+                    <div class="no-results">
+                        <i class="fas fa-search"></i>
+                        <h4>No Results Found</h4>
+                        <p class="text-muted">No marks found for PIN: <strong>{{ request.args.get('pin') }}</strong>
+                        </p>
+                        <a href="{{ url_for('view_marks') }}" class="reset-btn"
+                            style="display: inline-block; margin-top: 15px;">
+                            <i class="fas fa-times"></i> Clear Search
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+            <!-- /MAIN CONTENT -->
+
+        </div>
+    </div>
+    <!-- /PAGE LAYOUT -->
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Mobile sidebar toggle script -->
+    <script>
+        const sidebar        = document.getElementById('sidebar');
+        const sidebarToggle  = document.getElementById('sidebarToggle');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        function openSidebar() {
+            sidebar.classList.add('open');
+            sidebarOverlay.classList.add('active');
+            sidebarToggle.innerHTML = '<i class="fas fa-times"></i>';
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('active');
+            sidebarToggle.innerHTML = '<i class="fas fa-bars"></i>';
+        }
+
+        sidebarToggle.addEventListener('click', function () {
+            sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+        });
+
+        sidebarOverlay.addEventListener('click', closeSidebar);
+
+        document.querySelectorAll('.nav-link-sidebar').forEach(function (link) {
+            link.addEventListener('click', function () {
+                if (window.innerWidth < 992) { closeSidebar(); }
+            });
+        });
+    </script>
+
+    <!-- Page specific scripts -->
+    <script>
+        document.getElementById('pinInput')?.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('pinSearchForm').submit();
+            }
+        });
+
+        setTimeout(() => {
+            document.querySelectorAll('.alert').forEach(alert => {
+                alert.style.display = 'none';
+            });
+        }, 3000);
+    </script>
+
+</body>
+
+</html>

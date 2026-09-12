@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Announcements - Academic Relay</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/ar_logo.png') }}">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --navy-900: #0d47a1;
+            --navy-700: #1976d2;
+            --accent: #64b5f6;
+            --bg: #e9f4ff;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        /* ---------- Sidebar ---------- */
+        .sidebar {
+            background: linear-gradient(180deg, var(--navy-900), var(--navy-700));
+            min-height: 100vh;
+            color: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: rotate 30s linear infinite;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .sidebar-header {
+            padding: 30px 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 1;
+        }
+
+        .sidebar-header img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+        }
+
+        .sidebar-header img:hover {
+            transform: scale(1.05);
+            border-color: white;
+        }
+
+        .sidebar-header h4 {
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .sidebar-header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 12px;
+            border-radius: 50px;
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            margin: 0 auto 10px;
+        }
+
+        .sidebar-header p:hover {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            word-break: break-word;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .user-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 12px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+            cursor: default;
+            width: auto;
+            box-sizing: border-box;
+        }
+
+        .user-badge:hover {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            word-break: break-word;
+            background: rgba(255, 255, 255, 0.3);
+            z-index: 10;
+            position: relative;
+            transform: scale(1.02);
+        }
+
+        .user-badge i {
+            margin-right: 8px;
+            color: var(--accent);
+        }
+
+        .student-badge,
+        .faculty-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        .student-badge i,
+        .faculty-badge i {
+            margin-right: 5px;
+            color: var(--accent);
+        }
+
+        .nav-link-sidebar {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 25px;
+            margin: 5px 0;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .nav-link-sidebar:hover,
+        .nav-link-sidebar.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: white;
+            transform: translateX(5px);
+            text-decoration: none;
+        }
+
+        .nav-link-sidebar i {
+            width: 25px;
+            margin-right: 10px;
+            font-size: 1.1rem;
+        }
+
+        /* ---------- Main Content Area ---------- */
+        .main-content {
+            padding: 30px;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        /* ---------- Top Bar ---------- */
+        .top-bar {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(13, 71, 161, 0.05);
+        }
+
+        .page-title h1 {
+            font-size: 1.8rem;
+            color: var(--navy-900);
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .page-title i {
+            color: var(--navy-700);
+            margin-right: 10px;
+        }
+
+        .page-title p {
+            color: #666;
+            margin: 5px 0 0;
+            font-size: 0.95rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-info span {
+            color: #666;
+            background: #f8f9fa;
+            padding: 8px 15px;
+            border-radius: 50px;
+            font-size: 0.95rem;
+        }
+
+        .user-info i {
+            color: var(--navy-700);
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(13, 71, 161, 0.2);
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(13, 71, 161, 0.3);
+            color: white;
+            text-decoration: none;
+        }
+
+        /* ---------- Filter Section ---------- */
+        .filter-section {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(13, 71, 161, 0.05);
+        }
+
+        .filter-select {
+            padding: 12px 25px;
+            border: 2px solid rgba(13, 71, 161, 0.1);
+            border-radius: 10px;
+            color: var(--navy-900);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            min-width: 170px;
+            flex: 1;
+        }
+
+        .filter-select:hover {
+            border-color: var(--navy-700);
+            box-shadow: 0 5px 15px rgba(13, 71, 161, 0.1);
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--navy-700);
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+        }
+
+        /* ---------- Circulars Grid ---------- */
+        .circulars-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .circular-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+            border: 1px solid rgba(13, 71, 161, 0.1);
+            position: relative;
+            overflow: hidden;
+            display: block;
+        }
+
+        .circular-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(13, 71, 161, 0.1);
+            border-color: var(--navy-700);
+        }
+
+        .circular-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--navy-700), var(--navy-900));
+            transform: scaleX(0);
+            transition: transform 0.3s;
+        }
+
+        .circular-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .circular-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .circular-type {
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .type-general {
+            background: rgba(100, 181, 246, 0.2);
+            color: var(--navy-700);
+        }
+
+        .type-academic {
+            background: rgba(25, 118, 210, 0.2);
+            color: var(--navy-900);
+        }
+
+        .type-event {
+            background: rgba(255, 193, 7, 0.2);
+            color: #856404;
+        }
+
+        .circular-date {
+            color: #999;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .circular-title {
+            color: var(--navy-900);
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .circular-description {
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .circular-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(13, 71, 161, 0.1);
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .meta-item i {
+            color: var(--navy-700);
+        }
+
+        .priority-badge {
+            padding: 3px 10px;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .priority-low {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .priority-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .priority-high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .priority-urgent {
+            background: #dc3545;
+            color: white;
+        }
+
+        .circular-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .attachment-link {
+            color: var(--navy-700);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .attachment-link:hover {
+            color: var(--navy-900);
+            transform: translateX(5px);
+            text-decoration: none;
+        }
+
+        .read-more-btn {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .read-more-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 71, 161, 0.3);
+        }
+
+        /* ---------- Empty State ---------- */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 15px;
+            grid-column: 1 / -1;
+        }
+
+        .empty-state i {
+            font-size: 5rem;
+            color: var(--navy-700);
+            opacity: 0.3;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            color: var(--navy-900);
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: #999;
+            margin-bottom: 20px;
+        }
+
+        .empty-state .btn {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .empty-state .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 71, 161, 0.3);
+        }
+
+        /* ---------- Modal ---------- */
+        .modal-content {
+            border: none;
+            border-radius: 15px;
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--navy-900), var(--navy-700));
+            color: white;
+            border: none;
+            padding: 20px 25px;
+        }
+
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+
+        .badge {
+            padding: 5px 12px;
+            border-radius: 50px;
+            font-weight: 500;
+        }
+
+        /* ---------- Expired Card ---------- */
+        .expired-card {
+            opacity: 0.7;
+            background: #f8f9fa;
+            border-color: #dc3545 !important;
+        }
+
+        .expired-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #6c757d;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            z-index: 2;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .expired-badge i {
+            margin-right: 4px;
+            font-size: 0.65rem;
+        }
+
+        /* ---------- Flash Messages ---------- */
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            animation: slideIn 0.5s;
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        a {
+            text-decoration: none !important;
+        }
+
+        /* ---------- Mobile Sidebar Toggle Button ---------- */
+        .sidebar-toggle-btn {
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1050;
+            background: linear-gradient(135deg, var(--navy-900), var(--navy-700));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            width: 44px;
+            height: 44px;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 15px rgba(13, 71, 161, 0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            box-shadow: 0 6px 20px rgba(13, 71, 161, 0.5);
+            transform: scale(1.05);
+        }
+
+        /* Overlay behind sidebar on mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1040;
+            backdrop-filter: blur(2px);
+        }
+
+        /* ---------- Responsive ---------- */
+        @media (max-width: 991.98px) {
+
+            /* Show the hamburger toggle button */
+            .sidebar-toggle-btn {
+                display: flex;
+            }
+
+            /* Sidebar becomes a fixed off-canvas drawer */
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 260px;
+                height: 100%;
+                z-index: 1045;
+                transform: translateX(-100%);
+                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+                min-height: 100%;
+                overflow-y: auto;
+            }
+
+            /* Sidebar open state */
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            /* Overlay visible when sidebar is open */
+            .sidebar-overlay.active {
+                display: block;
+            }
+
+            /* Main content takes full width */
+            .col-md-9.col-lg-10.main-content {
+                width: 100% !important;
+                max-width: 100% !important;
+                flex: 0 0 100% !important;
+                padding-top: 70px;
+            }
+
+            /* Keep sidebar column outside of grid flow */
+            .col-md-3.col-lg-2.px-0.sidebar {
+                width: 260px !important;
+                max-width: 260px !important;
+                flex: none !important;
+            }
+
+            .top-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .user-info span {
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 15px;
+            }
+
+            .circulars-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-section {
+                flex-direction: column;
+            }
+
+            .filter-select {
+                width: 100%;
+            }
+
+            .top-bar {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .user-info {
+                flex-wrap: wrap;
+                gap: 10px;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .top-bar {
+                padding: 15px;
+            }
+
+            .circular-footer {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+
+            .read-more-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ========== FLASH MESSAGES ========== -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        <i
+            class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'danger' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Mobile sidebar toggle button (visible on mobile only) -->
+    <button class="sidebar-toggle-btn" id="sidebarToggle" aria-label="Toggle sidebar">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Overlay (dims content when sidebar is open on mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- ========== PAGE LAYOUT ========== -->
+    <div class="container-fluid">
+        <div class="row">
+
+            <!-- ========== SIDEBAR ========== -->
+            <div class="col-md-3 col-lg-2 px-0 sidebar" id="sidebar">
+
+                <!-- Sidebar Header -->
+                <div class="sidebar-header">
+                    <img src="{{ url_for('static', filename='images/ar_logo.png') }}" alt="Logo">
+                    <h4>Welcome,</h4>
+                    <div class="user-badge" title="{{ session.get('email', 'User') }}">
+                        <i class="fas fa-user-circle"></i>
+                        {{ session.get('email', 'User') if session.get('email')|length < 25 else
+                            session.get('email', 'User' )[:20] + '...' }} </div>
+                            {% if session.user_type == 'faculty' %}
+                            <span class="faculty-badge">
+                                <i class="fas fa-chalkboard-teacher me-2"></i>Faculty
+                            </span>
+                            {% elif session.user_type == 'student' %}
+                            <span class="student-badge">
+                                <i class="fas fa-user-graduate me-2"></i>Student
+                            </span>
+                            {% endif %}
+                    </div>
+
+                    <!-- Sidebar Navigation -->
+                    <nav class="nav flex-column">
+
+                        <!-- Dashboard link (role-aware) -->
+                        {% if session.user_type == 'faculty' %}
+                        <a class="nav-link-sidebar" href="{{ url_for('faculty_dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                        {% elif session.user_type == 'student' %}
+                        <a class="nav-link-sidebar" href="{{ url_for('student_dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                        {% else %}
+                        <a class="nav-link-sidebar" href="{{ url_for('home') }}">
+                            <i class="fas fa-home"></i> Home
+                        </a>
+                        {% endif %}
+
+                        <a class="nav-link-sidebar active" href="{{ url_for('announcements') }}">
+                            <i class="fas fa-bullhorn"></i> Announcements
+                        </a>
+
+                        {% if session.user_type == 'faculty' %}
+                        <a class="nav-link-sidebar" href="{{ url_for('upload_study_material') }}">
+                            <i class="fas fa-upload"></i> Upload Materials
+                        </a>
+                        {% endif %}
+
+                        <a class="nav-link-sidebar" href="{{ url_for('study_materials') }}">
+                            <i class="fas fa-book"></i> Study Materials
+                        </a>
+
+                        <a class="nav-link-sidebar" href="{{ url_for('assignments') }}">
+                            <i class="fas fa-tasks"></i> Assignments
+                        </a>
+
+                        {% if session.user_type == 'faculty' %}
+                        <a class="nav-link-sidebar" href="{{ url_for('upload_marks') }}">
+                            <i class="fas fa-cloud-upload"></i> Upload Marks
+                        </a>
+                        {% endif %}
+
+                        <a class="nav-link-sidebar" href="{{ url_for('view_marks') }}">
+                            <i class="fas fa-chart-line"></i> View Marks &amp; Progress
+                        </a>
+
+                        <a class="nav-link-sidebar" href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+
+                    </nav>
+
+                </div>
+                <!-- ========== /SIDEBAR ========== -->
+
+
+                <!-- ========== MAIN CONTENT ========== -->
+                <div class="col-md-9 col-lg-10 main-content">
+
+                    <!-- Top Bar -->
+                    <div class="top-bar">
+                        <div class="page-title">
+                            <h1><i class="fas fa-bullhorn"></i> Announcements</h1>
+                            <p>Stay updated with the latest circulars and announcements</p>
+                        </div>
+                        <div class="user-info">
+                            <span>
+                                <i class="fas fa-user me-2"></i>{{ session.get('email', 'User') }}
+                            </span>
+                            <a href="{{ url_for('logout') }}" class="logout-btn">
+                                <i class="fas fa-sign-out-alt me-2"></i>Logout
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Filter Section -->
+                    <div class="filter-section">
+                        <select class="filter-select" id="typeFilter" onchange="filterCirculars()">
+                            <option value="all">All Types</option>
+                            <option value="general">General</option>
+                            <option value="academic">Academic</option>
+                            <option value="event">Event</option>
+                        </select>
+
+                        <select class="filter-select" id="audienceFilter" onchange="filterCirculars()">
+                            <option value="all">All Audience</option>
+                            <option value="students">Students</option>
+                            <option value="faculty">Faculty</option>
+                        </select>
+
+                        <select class="filter-select" id="sortFilter" onchange="filterCirculars()">
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="priority">Priority</option>
+                        </select>
+
+                        <div
+                            style="display: flex; align-items: center; gap: 8px; background: white; padding: 0 15px; border-radius: 10px; border: 2px solid rgba(13,71,161,0.1);">
+                            <input type="checkbox" id="showExpired" onchange="filterCirculars()"
+                                style="width: 18px; height: 18px; cursor: pointer;">
+                            <label for="showExpired"
+                                style="color: var(--navy-900); font-weight: 500; cursor: pointer; margin: 0;">Show
+                                Expired</label>
+                        </div>
+                    </div>
+
+                    <!-- Circulars Grid -->
+                    <div class="circulars-grid" id="circularsGrid">
+
+                        {% if circulars and circulars|length > 0 %}
+                        {% for circular in circulars %}
+                        {% set is_expired = circular.valid_until and circular.valid_until < today %} <div
+                            class="circular-card {% if is_expired %}expired-card{% endif %}"
+                            data-type="{{ circular.type }}" data-audience="{{ circular.audience }}"
+                            data-priority="{{ circular.priority }}" data-date="{{ circular.date_posted }}"
+                            data-expired="{{ 'true' if is_expired else 'false' }}">
+
+                            {% if is_expired %}
+                            <div class="expired-badge">
+                                <i class="fas fa-hourglass-end me-1"></i> Expired
+                            </div>
+                            {% endif %}
+
+                            <!-- Card Header -->
+                            <div class="circular-header">
+                                <span class="circular-type type-{{ circular.type }}">
+                                    <i
+                                        class="fas fa-{% if circular.type == 'general' %}globe{% elif circular.type == 'academic' %}graduation-cap{% else %}calendar{% endif %} me-1"></i>
+                                    {{ circular.type|capitalize }}
+                                </span>
+                                <span class="circular-date">
+                                    <i class="far fa-calendar-alt"></i>
+                                    {% if circular.date_posted %}
+                                    {% if circular.date_posted is string %}
+                                    {{ circular.date_posted[:10] }}
+                                    {% else %}
+                                    {{ circular.date_posted.strftime('%Y-%m-%d') }}
+                                    {% endif %}
+                                    {% endif %}
+                                </span>
+                            </div>
+
+                            <h3 class="circular-title">{{ circular.title }}</h3>
+
+                            <p class="circular-description">
+                                {{ circular.description[:150] }}{% if circular.description|length > 150 %}...{% endif %}
+                            </p>
+
+                            <!-- Card Meta -->
+                            <div class="circular-meta">
+                                <span class="meta-item">
+                                    <i class="fas fa-users"></i>
+                                    {{ circular.audience|capitalize }}
+                                </span>
+                                <span class="meta-item">
+                                    <i class="fas fa-flag"></i>
+                                    <span class="priority-badge priority-{{ circular.priority }}">
+                                        {{ circular.priority|capitalize }}
+                                    </span>
+                                </span>
+                                {% if circular.valid_until %}
+                                <span class="meta-item">
+                                    <i class="fas fa-hourglass-half"></i>
+                                    Valid until: {{ circular.valid_until }}
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Card Footer -->
+                            <div class="circular-footer">
+                                {% if circular.attachment %}
+                                <a href="{{ url_for('download_circular', circular_id=circular.id) }}"
+                                    class="attachment-link" target="_blank">
+                                    <i class="fas fa-paperclip"></i> View Attachment
+                                </a>
+                                {% else %}
+                                <span></span>
+                                {% endif %}
+
+                                <button class="read-more-btn" onclick="showFullCircular('{{ circular.id }}')">
+                                    Read More <i class="fas fa-arrow-right ms-2"></i>
+                                </button>
+                            </div>
+
+                    </div>
+                    {% endfor %}
+
+                    {% else %}
+
+                    <div class="empty-state">
+                        <i class="fas fa-bullhorn"></i>
+                        <h3>No Announcements Yet</h3>
+                        <p>Check back later for updates from faculty</p>
+                        {% if session.user_type == 'faculty' %}
+                        <a href="{{ url_for('faculty_dashboard') }}" class="btn">
+                            <i class="fas fa-plus-circle me-2"></i>Post an Announcement
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    {% endif %}
+
+                </div>
+                <!-- /Circulars Grid -->
+
+            </div>
+            <!-- ========== /MAIN CONTENT ========== -->
+
+        </div>
+    </div>
+    <!-- ========== /PAGE LAYOUT ========== -->
+
+
+    <!-- ========== MODAL ========== -->
+
+    <!-- Full Circular Modal -->
+    <div class="modal fade" id="fullCircularModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title" id="fullCircularTitle"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body" id="fullCircularContent">
+                    <!-- Populated dynamically by showFullCircular() -->
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== /MODAL ========== -->
+
+
+    <!-- ========== SCRIPTS ========== -->
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Mobile sidebar toggle -->
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        function openSidebar() {
+            sidebar.classList.add('open');
+            sidebarOverlay.classList.add('active');
+            sidebarToggle.innerHTML = '<i class="fas fa-times"></i>';
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('active');
+            sidebarToggle.innerHTML = '<i class="fas fa-bars"></i>';
+        }
+
+        sidebarToggle.addEventListener('click', function () {
+            sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+        });
+
+        // Close sidebar when overlay is tapped
+        sidebarOverlay.addEventListener('click', closeSidebar);
+
+        // Close sidebar when a nav link is tapped on mobile
+        document.querySelectorAll('.nav-link-sidebar').forEach(function (link) {
+            link.addEventListener('click', function () {
+                if (window.innerWidth < 992) { closeSidebar(); }
+            });
+        });
+    </script>
+
+    <!-- Filter & circular logic -->
+    <script>
+        // Filter circulars
+        function filterCirculars() {
+            const typeFilter = document.getElementById('typeFilter').value;
+            const audienceFilter = document.getElementById('audienceFilter').value;
+            const sortFilter = document.getElementById('sortFilter').value;
+            const showExpired = document.getElementById('showExpired')?.checked || false;
+
+            const cards = document.querySelectorAll('.circular-card');
+            let visibleCards = [];
+
+            cards.forEach(card => {
+                const type = card.dataset.type;
+                const audience = card.dataset.audience;
+                const isExpired = card.dataset.expired === 'true';
+
+                const typeMatch = typeFilter === 'all' || type === typeFilter;
+                const audienceMatch = audienceFilter === 'all' || (audience && audience.toLowerCase().includes(audienceFilter));
+                const expiredMatch = showExpired || !isExpired;
+
+                if (typeMatch && audienceMatch && expiredMatch) {
+                    card.style.display = 'block';
+                    visibleCards.push(card);
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Sort visible cards
+            const grid = document.getElementById('circularsGrid');
+            const cardsArray = Array.from(visibleCards);
+
+            if (sortFilter === 'newest') {
+                cardsArray.sort((a, b) => new Date(b.dataset.date) - new Date(a.dataset.date));
+            } else if (sortFilter === 'oldest') {
+                cardsArray.sort((a, b) => new Date(a.dataset.date) - new Date(b.dataset.date));
+            } else if (sortFilter === 'priority') {
+                const priorityOrder = { 'urgent': 0, 'high': 1, 'medium': 2, 'low': 3 };
+                cardsArray.sort((a, b) =>
+                    priorityOrder[a.dataset.priority] - priorityOrder[b.dataset.priority]
+                );
+            }
+
+            // Re-append in sorted order
+            cardsArray.forEach(card => grid.appendChild(card));
+        }
+
+        // Show full circular in modal
+        function showFullCircular(circularId) {
+            console.log('Opening circular with ID:', circularId);
+
+            if (!circularId) {
+                alert('Invalid circular ID');
+                return;
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('fullCircularModal'));
+
+            // Loading state
+            document.getElementById('fullCircularTitle').textContent = 'Loading...';
+            document.getElementById('fullCircularContent').innerHTML =
+                '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+
+            modal.show();
+
+            // Fetch from server
+            fetch(`/get_circular/${circularId}`)
+                .then(response => {
+                    if (!response.ok) { throw new Error('Network response was not ok'); }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Received data:', data);
+
+                    if (data.error) {
+                        document.getElementById('fullCircularContent').innerHTML =
+                            '<p class="text-danger text-center">Error loading circular</p>';
+                        return;
+                    }
+
+                    document.getElementById('fullCircularTitle').textContent = data.title || 'Circular';
+
+                    let datePosted = 'Date not available';
+                    if (data.date_posted) {
+                        try {
+                            datePosted = new Date(data.date_posted).toLocaleDateString();
+                        } catch (e) {
+                            datePosted = data.date_posted;
+                        }
+                    }
+
+                    let content = `
+                        <div class="mb-4">
+                            <span class="badge" style="background: var(--navy-700); color: white;">${data.type || 'General'}</span>
+                            <span class="badge ms-2 priority-${data.priority || 'medium'}">${data.priority || 'Medium'}</span>
+                        </div>
+                        <p class="lead">${data.description || 'No description available'}</p>
+                        <hr>
+                        <div class="d-flex justify-content-between text-muted">
+                            <span><i class="fas fa-users me-2"></i>${data.audience || 'All'}</span>
+                            <span><i class="fas fa-calendar me-2"></i>Posted: ${datePosted}</span>
+                        </div>`;
+
+                    if (data.attachment) {
+                        content += `<hr><a href="/download_circular/${data.id}" class="btn btn-primary" target="_blank">
+                            <i class="fas fa-link me-2"></i>View Attachment</a>`;
+                    }
+
+                    document.getElementById('fullCircularContent').innerHTML = content;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('fullCircularContent').innerHTML =
+                        '<p class="text-danger text-center">Error loading circular. Please try again.</p>';
+                });
+        }
+
+        // Redirect to home for login
+        function showLoginModal() {
+            window.location.href = "{{ url_for('home') }}";
+        }
+
+        // Init on load
+        document.addEventListener('DOMContentLoaded', function () {
+            filterCirculars();
+            console.log('Page loaded, circulars found:', document.querySelectorAll('.circular-card').length);
+        });
+    </script>
+
+    <!-- Auto-dismiss flash messages -->
+    <script>
+        setTimeout(function () {
+            document.querySelectorAll('.alert').forEach(alert => {
+                alert.style.display = 'none';
+            });
+        }, 3000);
+    </script>
+
+    <!-- ========== /SCRIPTS ========== -->
+
+</body>
+
+</html>

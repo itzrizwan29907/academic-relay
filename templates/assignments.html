@@ -1,0 +1,1738 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Assignments - Academic Relay</title>
+
+    <!-- Favicon -->
+
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/ar_logo.png') }}">
+
+    <!-- Bootstrap CSS -->
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Font Awesome -->
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+    <!-- Google Fonts -->
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --navy-900: #0d47a1;
+            --navy-700: #1976d2;
+            --accent: #64b5f6;
+            --bg: #e9f4ff;
+            --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --info: #17a2b8;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        /* ---------- Sidebar ---------- */
+
+        .sidebar {
+            background: linear-gradient(180deg, var(--navy-900), var(--navy-700));
+            min-height: 100vh;
+            color: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: rotate 30s linear infinite;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .sidebar-header {
+            padding: 30px 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 1;
+        }
+
+        .sidebar-header img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+        }
+
+        .sidebar-header img:hover {
+            transform: scale(1.05);
+            border-color: white;
+        }
+
+        .sidebar-header h4 {
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .sidebar-header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 12px;
+            border-radius: 50px;
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            margin: 0 auto 10px;
+        }
+
+        .sidebar-header p:hover {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            word-break: break-word;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .user-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 12px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+            cursor: default;
+        }
+
+        .user-badge:hover {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            word-break: break-word;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .user-badge i {
+            margin-right: 8px;
+            color: var(--accent);
+        }
+
+        .student-badge,
+        .faculty-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        .student-badge i,
+        .faculty-badge i {
+            margin-right: 5px;
+            color: var(--accent);
+        }
+
+        .nav-link-sidebar {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 25px;
+            margin: 5px 0;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .nav-link-sidebar:hover,
+        .nav-link-sidebar.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: white;
+            transform: translateX(5px);
+            text-decoration: none;
+        }
+
+        .nav-link-sidebar i {
+            width: 25px;
+            margin-right: 10px;
+            font-size: 1.1rem;
+        }
+
+        /* ---------- Main Content Area ---------- */
+
+        .main-content {
+            padding: 30px;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        /* ---------- Top Bar ---------- */
+
+        .top-bar {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(13, 71, 161, 0.05);
+        }
+
+        .page-title h1 {
+            font-size: 1.8rem;
+            color: var(--navy-900);
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .page-title i {
+            color: var(--navy-700);
+            margin-right: 10px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-info span {
+            color: #666;
+            background: #f8f9fa;
+            padding: 8px 15px;
+            border-radius: 50px;
+            font-size: 0.95rem;
+        }
+
+        .user-info i {
+            color: var(--navy-700);
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(13, 71, 161, 0.2);
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(13, 71, 161, 0.3);
+            color: white;
+            text-decoration: none;
+        }
+
+        /* ---------- Filter Section ---------- */
+
+        .filter-section {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(13, 71, 161, 0.05);
+        }
+
+        .filter-select {
+            padding: 12px 25px;
+            border: 2px solid rgba(13, 71, 161, 0.1);
+            border-radius: 10px;
+            color: var(--navy-900);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            min-width: 150px;
+            flex: 1;
+        }
+
+        .filter-select:hover {
+            border-color: var(--navy-700);
+            box-shadow: 0 5px 15px rgba(13, 71, 161, 0.1);
+        }
+
+        /* ---------- Assignments Grid ---------- */
+
+        .assignments-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        .assignment-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            transition: all 0.4s ease;
+            border: 1px solid rgba(13, 71, 161, 0.1);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .assignment-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(13, 71, 161, 0.15);
+            border-color: var(--navy-700);
+        }
+
+        .assignment-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--navy-700), var(--navy-900), var(--accent));
+            transform: scaleX(0);
+            transition: transform 0.4s;
+        }
+
+        .assignment-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .branch-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 5px 12px;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .branch-cse {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .branch-ece {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+        }
+
+        .branch-eee {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+        }
+
+        .assignment-title {
+            color: var(--navy-900);
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 10px 0 15px;
+            padding-right: 80px;
+        }
+
+        .assignment-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(13, 71, 161, 0.1);
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .meta-item i {
+            color: var(--navy-700);
+        }
+
+        .assignment-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .deadline {
+            color: #e74c3c;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .deadline i {
+            margin-right: 5px;
+        }
+
+        .view-btn {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .view-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 71, 161, 0.3);
+        }
+
+        /* ---------- Empty State ---------- */
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 20px;
+            grid-column: 1 / -1;
+        }
+
+        .empty-state i {
+            font-size: 5rem;
+            color: var(--navy-700);
+            opacity: 0.3;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            color: var(--navy-900);
+            margin-bottom: 10px;
+        }
+
+        .empty-state .btn {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            color: white;
+            border: none;
+            padding: 12px 35px;
+            border-radius: 50px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        /* ---------- Branch Selection Cards (modal) ---------- */
+
+        .branch-option {
+            background: white;
+            border: 2px solid rgba(13, 71, 161, 0.1);
+            border-radius: 15px;
+            padding: 20px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .branch-option:hover {
+            transform: translateY(-5px);
+            border-color: var(--navy-700);
+            box-shadow: 0 10px 25px rgba(13, 71, 161, 0.1);
+        }
+
+        .branch-option.selected {
+            border-color: var(--navy-700);
+            background: linear-gradient(135deg, rgba(25, 118, 210, 0.05), rgba(13, 71, 161, 0.05));
+        }
+
+        .branch-option i {
+            font-size: 2rem;
+            color: var(--navy-700);
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .branch-option span {
+            font-weight: 600;
+            color: var(--navy-900);
+        }
+
+        /* ---------- Flash Messages ---------- */
+
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            animation: slideIn 0.5s;
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        a {
+            text-decoration: none !important;
+        }
+
+        /* ---------- Mobile Sidebar Toggle Button ---------- */
+
+        .sidebar-toggle-btn {
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1050;
+            background: linear-gradient(135deg, var(--navy-900), var(--navy-700));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            width: 44px;
+            height: 44px;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 15px rgba(13, 71, 161, 0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: linear-gradient(135deg, var(--navy-700), var(--navy-900));
+            box-shadow: 0 6px 20px rgba(13, 71, 161, 0.5);
+            transform: scale(1.05);
+        }
+
+        /* Overlay behind sidebar on mobile */
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1040;
+            backdrop-filter: blur(2px);
+        }
+
+        /* ---------- Responsive ---------- */
+
+        @media (max-width: 991.98px) {
+
+            /* Show the hamburger toggle button */
+
+            .sidebar-toggle-btn {
+                display: flex;
+            }
+
+            /* Sidebar becomes a fixed off-canvas drawer */
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 260px;
+                height: 100%;
+                z-index: 1045;
+                transform: translateX(-100%);
+                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+                min-height: 100%;
+                overflow-y: auto;
+            }
+
+            /* Sidebar open state */
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            /* Overlay visible when sidebar is open */
+
+            .sidebar-overlay.active {
+                display: block;
+            }
+
+            /* Main content takes full width */
+
+            .col-md-9.col-lg-10.main-content {
+                width: 100% !important;
+                max-width: 100% !important;
+                flex: 0 0 100% !important;
+                padding-top: 70px;
+            }
+
+            /* Keep sidebar column outside of grid flow */
+
+            .col-md-3.col-lg-2.px-0.sidebar {
+                width: 260px !important;
+                max-width: 260px !important;
+                flex: none !important;
+            }
+
+            .top-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .user-info span {
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+
+            .main-content {
+                padding: 15px;
+            }
+
+            .assignments-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-section {
+                flex-direction: column;
+            }
+
+            .filter-select {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+
+            .top-bar {
+                padding: 15px;
+            }
+
+            .user-info {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .assignment-footer {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .view-btn {
+                width: 100%;
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <!-- ========== FLASH MESSAGES ========== -->
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+
+    {% if messages %}
+
+    {% for category, message in messages %}
+
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+
+        <i
+            class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'danger' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+
+        {{ message }}
+
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+
+    </div>
+
+    {% endfor %}
+
+    {% endif %}
+
+    {% endwith %}
+
+    <!-- Mobile sidebar toggle button (visible on mobile only) -->
+
+    <button class="sidebar-toggle-btn" id="sidebarToggle" aria-label="Toggle sidebar">
+
+        <i class="fas fa-bars"></i>
+
+    </button>
+
+    <!-- Overlay (dims content when sidebar is open on mobile) -->
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- ========== PAGE LAYOUT ========== -->
+
+    <div class="container-fluid">
+
+        <div class="row">
+
+            <!-- ========== SIDEBAR ========== -->
+
+            <div class="col-md-3 col-lg-2 px-0 sidebar" id="sidebar">
+
+                <!-- Sidebar Header -->
+
+                <div class="sidebar-header">
+
+                    <img src="{{ url_for('static', filename='images/ar_logo.png') }}" alt="Logo">
+
+                    <h4>Welcome,</h4>
+
+                    <div class="user-badge" title="{{ session.get('email', 'User') }}">
+
+                        <i class="fas fa-user-circle"></i>
+
+                        {{ session.get('email', 'User') if session.get('email')|length < 25 else
+                            session.get('email', 'User' )[:20] + '...' }} </div>
+
+                            {% if session.user_type == 'faculty' %}
+
+                            <span class="faculty-badge">
+
+                                <i class="fas fa-chalkboard-teacher me-2"></i>Faculty
+
+                            </span>
+
+                            {% elif session.user_type == 'student' %}
+
+                            <span class="student-badge">
+
+                                <i class="fas fa-user-graduate me-2"></i>Student
+
+                            </span>
+
+                            {% endif %}
+
+                    </div>
+
+                    <!-- Sidebar Navigation -->
+
+                    <nav class="nav flex-column">
+
+                        <!-- Dashboard link (role-aware) -->
+
+                        {% if session.user_type == 'faculty' %}
+
+                        <a class="nav-link-sidebar" href="{{ url_for('faculty_dashboard') }}">
+
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+
+                        </a>
+
+                        {% elif session.user_type == 'student' %}
+
+                        <a class="nav-link-sidebar" href="{{ url_for('student_dashboard') }}">
+
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+
+                        </a>
+
+                        {% else %}
+
+                        <a class="nav-link-sidebar" href="{{ url_for('home') }}">
+
+                            <i class="fas fa-home"></i> Home
+
+                        </a>
+
+                        {% endif %}
+
+                        <a class="nav-link-sidebar" href="{{ url_for('announcements') }}">
+
+                            <i class="fas fa-bullhorn"></i> Announcements
+
+                        </a>
+
+                        {% if session.user_type == 'faculty' %}
+
+                        <a class="nav-link-sidebar" href="{{ url_for('upload_study_material') }}">
+
+                            <i class="fas fa-upload"></i> Upload Materials
+
+                        </a>
+
+                        {% endif %}
+
+                        <a class="nav-link-sidebar" href="{{ url_for('study_materials') }}">
+
+                            <i class="fas fa-book"></i> Study Materials
+
+                        </a>
+
+                        <a class="nav-link-sidebar active" href="{{ url_for('assignments') }}">
+
+                            <i class="fas fa-tasks"></i> Assignments
+
+                        </a>
+
+                        {% if session.user_type == 'faculty' %}
+
+                        <a class="nav-link-sidebar" href="{{ url_for('upload_marks') }}">
+
+                            <i class="fas fa-cloud-upload"></i> Upload Marks
+
+                        </a>
+
+                        {% endif %}
+
+                        <a class="nav-link-sidebar" href="{{ url_for('view_marks') }}">
+
+                            <i class="fas fa-chart-line"></i> View Marks &amp; Progress
+
+                        </a>
+
+                        <a class="nav-link-sidebar" href="{{ url_for('logout') }}">
+
+                            <i class="fas fa-sign-out-alt"></i> Logout
+
+                        </a>
+
+                    </nav>
+
+                </div>
+
+                <!-- ========== /SIDEBAR ========== -->
+
+
+                <!-- ========== MAIN CONTENT ========== -->
+
+                <div class="col-md-9 col-lg-10 main-content">
+
+                    <!-- Top Bar -->
+
+                    <div class="top-bar">
+
+                        <div class="page-title">
+
+                            <h1><i class="fas fa-tasks"></i> Assignments</h1>
+
+                        </div>
+
+                        <div class="user-info">
+
+                            <span>
+
+                                <i class="fas fa-user me-2"></i>{{ session.get('email', 'User') }}
+
+                            </span>
+
+                            <a href="{{ url_for('logout') }}" class="logout-btn">
+
+                                <i class="fas fa-sign-out-alt me-2"></i>Logout
+
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                    <!-- Filter Section -->
+
+                    <div class="filter-section">
+
+                        <select class="filter-select" id="branchFilter" onchange="filterAssignments()">
+
+                            <option value="all">All Branches</option>
+
+                            <option value="CSE">Computer Science &amp; Engineering (C.S.E)</option>
+
+                            <option value="ECE">Electronics &amp; Communication Engineering (E.C.E)</option>
+
+                            <option value="EEE">Electrical &amp; Electronics Engineering (E.E.E)</option>
+
+                        </select>
+
+                        <select class="filter-select" id="semesterFilter" onchange="filterAssignments()">
+
+                            <option value="all">All Semesters</option>
+
+                            <option value="1">Semester 1</option>
+
+                            <option value="2">Semester 2</option>
+
+                            <option value="3">Semester 3</option>
+
+                            <option value="4">Semester 4</option>
+
+                            <option value="5">Semester 5</option>
+
+                            <option value="6">Semester 6</option>
+
+                        </select>
+
+                    </div>
+
+                    <!-- Assignments Grid -->
+
+                    <div class="assignments-grid" id="assignmentsGrid">
+
+                        {% if assignments and assignments|length > 0 %}
+
+                        {% for assignment in assignments %}
+
+                        <div class="assignment-card" data-branch="{{ assignment.branch }}"
+                            data-semester="{{ assignment.semester }}"
+                            onclick="showAssignmentDetails({{ assignment.id }})">
+
+                            <!-- Branch badge -->
+
+                            <div class="branch-badge branch-{{ assignment.branch|lower }}">
+
+                                {{ assignment.branch }}
+
+                            </div>
+
+                            <h3 class="assignment-title">{{ assignment.title }}</h3>
+
+                            <!-- Meta -->
+
+                            <div class="assignment-meta">
+
+                                <span class="meta-item">
+
+                                    <i class="fas fa-book"></i> {{ assignment.subject }}
+
+                                </span>
+
+                                <span class="meta-item">
+
+                                    <i class="fas fa-layer-group"></i> Sem {{ assignment.semester }}
+
+                                </span>
+
+                                <span class="meta-item">
+
+                                    <i class="fas fa-question-circle"></i> {{ assignment.total_questions }} Ques
+
+                                </span>
+
+                                <span class="meta-item">
+
+                                    <i class="fas fa-star"></i> {{ assignment.total_marks }} Marks
+
+                                </span>
+
+                            </div>
+
+                            <p class="text-muted mb-3">{{ assignment.description[:100] }}...</p>
+
+                            <!-- Footer -->
+
+                            <div class="assignment-footer">
+
+                                <span class="deadline">
+
+                                    <i class="far fa-calendar-alt"></i> Due: {{ assignment.deadline }}
+
+                                </span>
+
+                                <button class="view-btn"
+                                    onclick="event.stopPropagation(); showAssignmentDetails({{ assignment.id }})">
+
+                                    View Details <i class="fas fa-arrow-right ms-2"></i>
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                        {% endfor %}
+
+                        {% else %}
+
+                        <div class="empty-state">
+
+                            <i class="fas fa-tasks"></i>
+
+                            <h3>No Assignments Yet</h3>
+
+                            <p>Check back later for assignments from faculty</p>
+
+                            {% if session.user_type == 'faculty' %}
+
+                            <button class="btn" data-bs-toggle="modal" data-bs-target="#postAssignmentModal">
+
+                                <i class="fas fa-plus-circle me-2"></i>Post an Assignment
+
+                            </button>
+
+                            {% endif %}
+
+                        </div>
+
+                        {% endif %}
+
+                    </div>
+
+                    <!-- /Assignments Grid -->
+
+                </div>
+
+                <!-- ========== /MAIN CONTENT ========== -->
+
+            </div>
+
+        </div>
+
+        <!-- ========== /PAGE LAYOUT ========== -->
+
+
+        <!-- ========== MODALS ========== -->
+
+        <!-- Post Assignment Modal -->
+
+        <div class="modal fade" id="postAssignmentModal" tabindex="-1" aria-hidden="true">
+
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+
+                <div class="modal-content" style="border-radius: 20px; border: none; overflow: hidden;">
+
+                    <!-- Header -->
+
+                    <div class="modal-header"
+                        style="background: linear-gradient(135deg, var(--navy-900), var(--navy-700)); border: none; padding: 25px 30px;">
+
+                        <div>
+
+                            <h4 class="modal-title text-white">
+
+                                <i class="fas fa-tasks me-2"></i> Post New Assignment
+
+                            </h4>
+
+                            <p class="text-white-50 mb-0 small mt-1">
+
+                                Create and manage assignments for students
+
+                            </p>
+
+                        </div>
+
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+
+                    </div>
+
+                    <!-- Body -->
+
+                    <div class="modal-body p-4" style="background: #f8fafd;">
+
+                        <form id="assignmentForm" onsubmit="return submitAssignment(event)">
+
+                            <!-- Title -->
+
+                            <div class="mb-4">
+
+                                <label class="form-label fw-600" style="color: var(--navy-900);">
+
+                                    <i class="fas fa-heading me-2" style="color: var(--navy-700);"></i>Assignment Title
+
+                                </label>
+
+                                <input type="text" class="form-control" name="title" required
+                                    placeholder="e.g., Data Structures Assignment 1"
+                                    style="border: 2px solid rgba(13,71,161,0.1); border-radius: 12px; padding: 12px 15px;">
+
+                            </div>
+
+                            <!-- Branch Selection -->
+
+                            <div class="mb-4">
+
+                                <label class="form-label fw-600" style="color: var(--navy-900);">
+
+                                    <i class="fas fa-code-branch me-2" style="color: var(--navy-700);"></i>Branch
+
+                                </label>
+
+                                <div class="row g-3">
+
+                                    <div class="col-md-4">
+
+                                        <div class="branch-option" onclick="selectBranch('CSE')" id="branch-cse">
+
+                                            <i class="fas fa-laptop-code"></i>
+
+                                            <span>C.S.E</span>
+
+                                        </div>
+
+                                    </div>
+
+                                    <div class="col-md-4">
+
+                                        <div class="branch-option" onclick="selectBranch('ECE')" id="branch-ece">
+
+                                            <i class="fas fa-microchip"></i>
+
+                                            <span>E.C.E</span>
+
+                                        </div>
+
+                                    </div>
+
+                                    <div class="col-md-4">
+
+                                        <div class="branch-option" onclick="selectBranch('EEE')" id="branch-eee">
+
+                                            <i class="fas fa-bolt"></i>
+
+                                            <span>E.E.E</span>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                                <input type="hidden" name="branch" id="selectedBranch" required>
+
+                            </div>
+
+                            <!-- Semester and Subject -->
+
+                            <div class="row mb-4">
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label fw-600" style="color: var(--navy-900);">
+
+                                        <i class="fas fa-layer-group me-2" style="color: var(--navy-700);"></i>Semester
+
+                                    </label>
+
+                                    <select name="semester" class="form-select" required
+                                        style="border: 2px solid rgba(13,71,161,0.1); border-radius: 12px; padding: 12px;">
+
+                                        <option value="">Select Semester</option>
+
+                                        <option value="1">Semester 1</option>
+
+                                        <option value="2">Semester 2</option>
+
+                                        <option value="3">Semester 3</option>
+
+                                        <option value="4">Semester 4</option>
+
+                                        <option value="5">Semester 5</option>
+
+                                        <option value="6">Semester 6</option>
+
+                                    </select>
+
+                                </div>
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label fw-600" style="color: var(--navy-900);">
+
+                                        <i class="fas fa-book me-2" style="color: var(--navy-700);"></i>Subject
+
+                                    </label>
+
+                                    <input type="text" name="subject" class="form-control" required
+                                        placeholder="e.g., Data Structures"
+                                        style="border: 2px solid rgba(13,71,161,0.1); border-radius: 12px; padding: 12px 15px;">
+
+                                </div>
+
+                            </div>
+
+                            <!-- Description -->
+
+                            <div class="mb-4">
+
+                                <label class="form-label fw-600" style="color: var(--navy-900);">
+
+                                    <i class="fas fa-align-left me-2" style="color: var(--navy-700);"></i>Description
+
+                                </label>
+
+                                <textarea class="form-control" name="description" rows="4" required
+                                    placeholder="Provide details about the assignment, questions, instructions..."
+                                    style="border: 2px solid rgba(13,71,161,0.1); border-radius: 12px; padding: 12px 15px;"></textarea>
+
+                            </div>
+
+                            <!-- Questions and Marks -->
+
+                            <div class="row mb-4">
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label fw-600" style="color: var(--navy-900);">
+
+                                        <i class="fas fa-question-circle me-2" style="color: var(--navy-700);"></i>Total
+                                        Questions
+
+                                    </label>
+
+                                    <input type="number" name="total_questions" class="form-control" value="5" min="1"
+                                        max="20"
+                                        style="border: 2px solid rgba(13,71,161,0.1); border-radius: 12px; padding: 12px 15px;">
+
+                                </div>
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label fw-600" style="color: var(--navy-900);">
+
+                                        <i class="fas fa-star me-2" style="color: var(--navy-700);"></i>Total Marks
+
+                                    </label>
+
+                                    <input type="number" name="total_marks" class="form-control" value="100" min="1"
+                                        max="500"
+                                        style="border: 2px solid rgba(13,71,161,0.1); border-radius: 12px; padding: 12px 15px;">
+
+                                </div>
+
+                            </div>
+
+                            <!-- Deadline and Attachment -->
+
+                            <div class="row mb-4">
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label fw-600" style="color: var(--navy-900);">
+
+                                        <i class="fas fa-calendar-times me-2"
+                                            style="color: var(--navy-700);"></i>Deadline
+
+                                    </label>
+
+                                    <input type="date" name="deadline" class="form-control" required
+                                        style="border: 2px solid rgba(13,71,161,0.1); border-radius: 12px; padding: 12px 15px;">
+
+                                </div>
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label fw-600" style="color: var(--navy-900);">
+
+                                        <i class="fas fa-paperclip me-2" style="color: var(--navy-700);"></i>Attachment
+                                        (Optional)
+
+                                    </label>
+
+                                    <input type="file" name="attachment" class="form-control"
+                                        style="border: 2px solid rgba(13,71,161,0.1); border-radius: 12px; padding: 10px;">
+
+                                </div>
+
+                            </div>
+
+                            <!-- Submit / Cancel -->
+
+                            <div class="d-flex gap-3 mt-5">
+
+                                <button type="submit" class="btn flex-grow-1" id="submitAssignmentBtn"
+                                    style="background: linear-gradient(135deg, var(--navy-700), var(--navy-900)); color: white; border: none; border-radius: 12px; padding: 14px; font-weight: 600;">
+
+                                    <i class="fas fa-paper-plane me-2"></i> Post Assignment
+
+                                </button>
+
+                                <button type="button" class="btn flex-grow-1" data-bs-dismiss="modal"
+                                    style="background: transparent; color: var(--navy-900); border: 2px solid rgba(13,71,161,0.2); border-radius: 12px; padding: 14px; font-weight: 600;">
+
+                                    <i class="fas fa-times me-2"></i> Cancel
+
+                                </button>
+
+                            </div>
+
+                        </form>
+
+                    </div>
+
+                    <!-- Footer -->
+
+                    <div class="modal-footer"
+                        style="background: rgba(13,71,161,0.04); border-top: 1px solid rgba(13,71,161,0.1); padding: 15px 30px;">
+
+                        <div class="d-flex align-items-center gap-3">
+
+                            <i class="fas fa-lightbulb" style="color: var(--navy-700);"></i>
+
+                            <small class="text-muted">
+
+                                <strong>Tip:</strong> Add clear instructions and specify deadline for better student
+                                response
+
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- /Post Assignment Modal -->
+
+
+        <!-- Assignment Details Modal -->
+
+        <div class="modal fade" id="assignmentDetailsModal" tabindex="-1" aria-hidden="true">
+
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+
+                <div class="modal-content" style="border-radius: 20px; border: none; overflow: hidden;">
+
+                    <div class="modal-header"
+                        style="background: linear-gradient(135deg, var(--navy-900), var(--navy-700)); color: white; border: none; padding: 25px 30px;">
+
+                        <h5 class="modal-title" id="assignmentDetailsTitle"></h5>
+
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+
+                    </div>
+
+                    <div class="modal-body p-4" id="assignmentDetailsContent">
+
+                        <!-- Populated dynamically by showAssignmentDetails() -->
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- /Assignment Details Modal -->
+
+        <!-- ========== /MODALS ========== -->
+
+
+        <!-- ========== SCRIPTS ========== -->
+
+        <!-- Bootstrap JS -->
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
+
+        <!-- Mobile sidebar toggle -->
+
+        <script>
+
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+            function openSidebar() {
+
+                sidebar.classList.add('open');
+                sidebarOverlay.classList.add('active');
+                sidebarToggle.innerHTML = '<i class="fas fa-times"></i>';
+
+            }
+
+            function closeSidebar() {
+
+                sidebar.classList.remove('open');
+                sidebarOverlay.classList.remove('active');
+                sidebarToggle.innerHTML = '<i class="fas fa-bars"></i>';
+
+            }
+
+            sidebarToggle.addEventListener('click', function () {
+
+                sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+
+            });
+
+            // Close sidebar when overlay is tapped
+
+            sidebarOverlay.addEventListener('click', closeSidebar);
+
+            // Close sidebar when a nav link is tapped on mobile
+
+            document.querySelectorAll('.nav-link-sidebar').forEach(function (link) {
+
+                link.addEventListener('click', function () {
+
+                    if (window.innerWidth < 992) {
+                        closeSidebar();
+                    }
+
+                });
+
+            });
+
+        </script>
+
+        <!-- Filter & assignment logic -->
+
+        <script>
+
+            // Branch Selection (modal)
+
+            function selectBranch(branch) {
+
+                document.querySelectorAll('.branch-option').forEach(opt => {
+
+                    opt.classList.remove('selected');
+
+                });
+
+                document.getElementById(`branch-${branch.toLowerCase()}`).classList.add('selected');
+
+                document.getElementById('selectedBranch').value = branch;
+
+            }
+
+            // Filter Assignments
+
+            function filterAssignments() {
+
+                const branchFilter = document.getElementById('branchFilter').value;
+                const semesterFilter = document.getElementById('semesterFilter').value;
+
+                document.querySelectorAll('.assignment-card').forEach(card => {
+
+                    const branchMatch =
+                        branchFilter === 'all' || card.dataset.branch === branchFilter;
+
+                    const semesterMatch =
+                        semesterFilter === 'all' || card.dataset.semester == semesterFilter;
+
+                    card.style.display =
+                        (branchMatch && semesterMatch) ? 'block' : 'none';
+
+                });
+
+            }
+
+            // Submit Assignment
+
+            function submitAssignment(event) {
+
+                event.preventDefault();
+
+                if (!document.getElementById('selectedBranch').value) {
+
+                    alert('Please select a branch');
+
+                    return false;
+
+                }
+
+                const submitBtn = document.getElementById('submitAssignmentBtn');
+
+                submitBtn.innerHTML =
+                    '<i class="fas fa-spinner fa-spin me-2"></i>Posting...';
+
+                submitBtn.disabled = true;
+
+                const formData =
+                    new FormData(document.getElementById('assignmentForm'));
+
+                fetch('/post_assignment', {
+                    method: 'POST',
+                    body: formData
+                })
+
+                    .then(response => response.json())
+
+                    .then(data => {
+
+                        if (data.success) {
+
+                            submitBtn.innerHTML =
+                                '<i class="fas fa-check me-2"></i>Posted!';
+
+                            setTimeout(() => {
+
+                                bootstrap.Modal.getInstance(
+                                    document.getElementById('postAssignmentModal')
+                                ).hide();
+
+                                location.reload();
+
+                            }, 1000);
+
+                        } else {
+
+                            alert('Error: ' + data.message);
+
+                            submitBtn.innerHTML =
+                                '<i class="fas fa-paper-plane me-2"></i> Post Assignment';
+
+                            submitBtn.disabled = false;
+
+                        }
+
+                    })
+
+                    .catch(error => {
+
+                        console.error('Error:', error);
+
+                        alert('Error posting assignment');
+
+                        submitBtn.innerHTML =
+                            '<i class="fas fa-paper-plane me-2"></i> Post Assignment';
+
+                        submitBtn.disabled = false;
+
+                    });
+
+                return false;
+
+            }
+
+            // Show Assignment Details
+
+            function showAssignmentDetails(assignmentId) {
+
+                const modal =
+                    new bootstrap.Modal(
+                        document.getElementById('assignmentDetailsModal')
+                    );
+
+                document.getElementById('assignmentDetailsTitle').textContent =
+                    'Loading...';
+
+                document.getElementById('assignmentDetailsContent').innerHTML =
+                    '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>';
+
+                modal.show();
+
+                fetch(`/get_assignment/${assignmentId}`)
+
+                    .then(response => response.json())
+
+                    .then(data => {
+
+                        document.getElementById('assignmentDetailsTitle').textContent =
+                            data.title;
+
+                        const today = new Date().toISOString().split('T')[0];
+
+                        const isExpired = data.deadline < today;
+
+                        let content = `
+
+                        <div class="mb-4 d-flex align-items-center gap-3 flex-wrap">
+
+                            <span class="badge"
+                                style="background: var(--navy-700); color: white; padding: 8px 15px;">
+                                ${data.branch}
+                            </span>
+
+                            <span class="badge"
+                                style="background: var(--accent); color: var(--navy-900);">
+                                Semester ${data.semester}
+                            </span>
+
+                            <span class="badge"
+                                style="background: #6c757d; color: white;">
+                                ${data.subject}
+                            </span>
+
+                            ${isExpired
+                                ? '<span class="badge bg-danger">Expired</span>'
+                                : '<span class="badge bg-success">Active</span>'}
+
+                        </div>
+
+                        <div class="mb-4 p-3"
+                            style="background: #f8f9fa; border-radius: 10px;">
+
+                            <p style="font-size: 1rem; line-height: 1.8;">
+                                ${data.description}
+                            </p>
+
+                        </div>
+
+                        <div class="row g-3 mb-4">
+
+                            <div class="col-md-4">
+
+                                <div class="p-3 text-center"
+                                    style="background: #f8f9fa; border-radius: 10px;">
+
+                                    <i class="fas fa-question-circle fa-2x mb-2"
+                                        style="color: var(--navy-700);"></i>
+
+                                    <h5>${data.total_questions} Questions</h5>
+
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-4">
+
+                                <div class="p-3 text-center"
+                                    style="background: #f8f9fa; border-radius: 10px;">
+
+                                    <i class="fas fa-star fa-2x mb-2"
+                                        style="color: var(--navy-700);"></i>
+
+                                    <h5>${data.total_marks} Marks</h5>
+
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-4">
+
+                                <div class="p-3 text-center"
+                                    style="background: #f8f9fa; border-radius: 10px;">
+
+                                    <i class="fas fa-calendar-alt fa-2x mb-2"
+                                        style="color: var(--navy-700);"></i>
+
+                                    <h5>Due: ${data.deadline}</h5>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between align-items-center">
+
+                            <small class="text-muted">
+
+                                <i class="fas fa-user me-2"></i>
+                                Posted by: ${data.created_by}
+
+                            </small>
+
+                            <small class="text-muted">
+
+                                <i class="fas fa-clock me-2"></i>
+                                ${data.date_posted}
+
+                            </small>
+
+                        </div>`;
+
+                        /*
+                         * Updated attachment link:
+                         * Uses the Flask /download_assignment/<id> route
+                         * instead of the old /static/uploads/ path.
+                         */
+
+                        if (data.attachment) {
+
+                            content += `<hr>
+
+                            <a href="/download_assignment/${data.id}"
+                                class="btn btn-primary"
+                                target="_blank">
+
+                                <i class="fas fa-link me-2"></i>
+                                View Attachment
+
+                            </a>`;
+
+                        }
+
+                        document.getElementById('assignmentDetailsContent').innerHTML =
+                            content;
+
+                    })
+
+                    .catch(error => {
+
+                        console.error('Error:', error);
+
+                        document.getElementById('assignmentDetailsContent').innerHTML =
+                            '<p class="text-danger text-center">Error loading assignment details</p>';
+
+                    });
+
+            }
+
+        </script>
+
+        <!-- Auto-dismiss flash messages -->
+
+        <script>
+
+            setTimeout(function () {
+
+                document.querySelectorAll('.alert').forEach(alert => {
+
+                    alert.style.display = 'none';
+
+                });
+
+            }, 3000);
+
+        </script>
+
+        <!-- ========== /SCRIPTS ========== -->
+
+</body>
+
+</html>

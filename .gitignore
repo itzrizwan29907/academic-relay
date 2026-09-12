@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+environment/
+venv/
+.venv/
+
+# Environment variables / secrets
+.env
+
+# Flask
+instance/
+
+# Local uploaded files
+static/uploads/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local migration / setup scripts
+app_mysql_backup.py
+migrate_data.py
+migrate_storage.py
+setupdb.py
+
+# Project documentation
+Academic Relay Doc (FINAL).docx
+Academic Relay Doc (FINAL).pdf

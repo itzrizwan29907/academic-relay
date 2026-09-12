@@ -61,8 +61,6 @@ Academic Relay brings different types of academic resources together, including:
 - Assignments
 - Notes & study materials
 - Marks
-- Previous-year papers
-- Syllabi
 
 ---
 

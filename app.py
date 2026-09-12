@@ -19,6 +19,11 @@ import os
 import mimetypes
 import io
 from supabase import create_client, Client
+import secrets
+import hashlib
+import smtplib
+from email.message import EmailMessage
+from urllib.parse import quote
 
 # ============================================================
 # ENVIRONMENT VARIABLES
@@ -30,9 +35,12 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set in .env")
+    raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set in the environment.")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase: Client = create_client(
+    SUPABASE_URL,
+    SUPABASE_KEY,
+)
 
 STORAGE_BUCKET = "academic-relay-files"
 
@@ -57,19 +65,25 @@ app.secret_key = SECRET_KEY
 
 
 def get_db():
+
     if "db" not in g:
+
         database_url = os.getenv("DATABASE_URL")
 
         if not database_url:
             raise RuntimeError("DATABASE_URL is not set in the environment.")
 
-        g.db = psycopg.connect(database_url, sslmode="require")
+        g.db = psycopg.connect(
+            database_url,
+            sslmode="require",
+        )
 
     return g.db
 
 
 @app.teardown_appcontext
 def close_db(exception=None):
+
     db = g.pop("db", None)
 
     if db is not None:
@@ -83,7 +97,7 @@ def close_db(exception=None):
 
 def upload_to_storage(file, folder):
     """
-    Uploads a Flask uploaded file to Supabase Storage.
+    Upload a Flask uploaded file to Supabase Storage.
 
     Returns:
         storage_path, file_size, file_type
@@ -106,7 +120,6 @@ def upload_to_storage(file, folder):
 
     file_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
 
-    # Read file into memory
     file_bytes = file.read()
 
     if not file_bytes:
@@ -114,7 +127,6 @@ def upload_to_storage(file, folder):
 
     file_size = len(file_bytes)
 
-    # Upload to Supabase Storage
     supabase.storage.from_(STORAGE_BUCKET).upload(
         storage_path,
         file_bytes,
@@ -129,9 +141,10 @@ def upload_to_storage(file, folder):
 
 def download_from_storage(storage_path):
     """
-    Downloads a file from Supabase Storage.
+    Download a file from Supabase Storage.
 
-    Returns the file bytes.
+    Returns:
+        file bytes
     """
 
     return supabase.storage.from_(STORAGE_BUCKET).download(storage_path)
@@ -139,19 +152,98 @@ def download_from_storage(storage_path):
 
 def delete_from_storage(storage_path):
     """
-    Deletes a file from Supabase Storage.
-
-    If the file doesn't exist, the database record can still
-    be handled separately.
+    Delete a file from Supabase Storage.
     """
 
     if not storage_path:
         return
 
     try:
+
         supabase.storage.from_(STORAGE_BUCKET).remove([storage_path])
+
     except Exception as e:
-        print(f"Warning: Could not delete Storage file " f"'{storage_path}': {e}")
+
+        print("Warning: Could not delete Storage file " f"'{storage_path}': {e}")
+
+
+# ============================================================
+# SEND PASSWORD-RESET EMAIL
+# ============================================================
+
+
+def send_password_reset_email(
+    recipient_email,
+    reset_url,
+):
+    """
+    Send a password-reset email using SMTP.
+
+    Required environment variables:
+
+        SMTP_HOST
+        SMTP_PORT
+        SMTP_USERNAME
+        SMTP_PASSWORD
+    """
+
+    smtp_host = os.getenv("SMTP_HOST")
+
+    smtp_port = int(
+        os.getenv(
+            "SMTP_PORT",
+            "465",
+        )
+    )
+
+    smtp_username = os.getenv("SMTP_USERNAME")
+
+    smtp_password = os.getenv("SMTP_PASSWORD")
+
+    if not all(
+        [
+            smtp_host,
+            smtp_username,
+            smtp_password,
+        ]
+    ):
+        raise RuntimeError("SMTP configuration is incomplete.")
+
+    message = EmailMessage()
+
+    message["Subject"] = "Academic Relay - Password Reset"
+
+    message["From"] = smtp_username
+
+    message["To"] = recipient_email
+
+    message.set_content(f"""Hello,
+
+We received a request to reset your Academic Relay password.
+
+Use the link below to create a new password:
+
+{reset_url}
+
+This link will expire in 30 minutes and can only be used once.
+
+If you did not request a password reset, you can safely ignore this email.
+
+Regards,
+Academic Relay
+""")
+
+    with smtplib.SMTP_SSL(
+        smtp_host,
+        smtp_port,
+    ) as smtp:
+
+        smtp.login(
+            smtp_username,
+            smtp_password,
+        )
+
+        smtp.send_message(message)
 
 
 # ============================================================
@@ -161,11 +253,17 @@ def delete_from_storage(storage_path):
 
 @app.route("/")
 def home():
+
     message = request.args.get("message")
+
     category = request.args.get("category")
 
     if message and category:
-        flash(message, category)
+
+        flash(
+            message,
+            category,
+        )
 
     return render_template("index.html")
 
@@ -175,43 +273,94 @@ def home():
 # ============================================================
 
 
-@app.route("/register", methods=["POST"])
+@app.route(
+    "/register",
+    methods=["POST"],
+)
 def register():
-    email = request.form["email"]
+
+    email = request.form["email"].strip().lower()
+
     password = request.form["password"]
-    user_type = request.form.get("user_type", "student")
+
+    user_type = request.form.get(
+        "user_type",
+        "student",
+    )
 
     cur = get_db().cursor()
 
-    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+    try:
 
-    existing_user = cur.fetchone()
+        cur.execute(
+            """
+            SELECT *
+            FROM users
+            WHERE LOWER(email) = %s
+            """,
+            (email,),
+        )
 
-    if existing_user:
-        cur.close()
+        existing_user = cur.fetchone()
 
-        flash("User already exists with this email! Please login.", "danger")
+        if existing_user:
+
+            flash(
+                "User already exists with this email! " "Please login.",
+                "danger",
+            )
+
+            return redirect(url_for("home"))
+
+        hashed_password = generate_password_hash(password)
+
+        cur.execute(
+            """
+            INSERT INTO users
+            (
+                email,
+                password,
+                user_type
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s
+            )
+            """,
+            (
+                email,
+                hashed_password,
+                user_type,
+            ),
+        )
+
+        get_db().commit()
+
+        flash(
+            "Registration successful! Please login.",
+            "success",
+        )
 
         return redirect(url_for("home"))
 
-    hashed_password = generate_password_hash(password)
+    except Exception as e:
 
-    cur.execute(
-        """
-        INSERT INTO users
-        (email, password, user_type)
-        VALUES (%s, %s, %s)
-        """,
-        (email, hashed_password, user_type),
-    )
+        get_db().rollback()
 
-    get_db().commit()
+        print(f"Registration error: {e}")
 
-    cur.close()
+        flash(
+            "Unable to complete registration right now.",
+            "danger",
+        )
 
-    flash("Registration successful! Please login.", "success")
+        return redirect(url_for("home"))
 
-    return redirect(url_for("home"))
+    finally:
+
+        cur.close()
 
 
 # ============================================================
@@ -219,95 +368,586 @@ def register():
 # ============================================================
 
 
-@app.route("/login", methods=["POST"])
+@app.route(
+    "/login",
+    methods=["POST"],
+)
 def login():
-    email = request.form["email"]
+
+    email = request.form["email"].strip().lower()
+
     password = request.form["password"]
 
     cur = get_db().cursor()
 
-    cur.execute(
-        """
-        SELECT id, email, password, user_type
-        FROM users
-        WHERE email = %s
-        """,
-        (email,),
-    )
+    try:
 
-    result = cur.fetchone()
+        cur.execute(
+            """
+            SELECT
+                id,
+                email,
+                password,
+                user_type
+            FROM users
+            WHERE LOWER(email) = %s
+              AND is_active = TRUE
+            """,
+            (email,),
+        )
 
-    cur.close()
+        result = cur.fetchone()
 
-    if result:
-        user_id = result[0]
-        db_email = result[1]
-        db_password = result[2]
-        user_type = result[3]
+        if result:
 
-        if check_password_hash(db_password, password):
-            session["user_id"] = user_id
-            session["email"] = db_email
-            session["user_type"] = user_type
+            user_id = result[0]
+            db_email = result[1]
+            db_password = result[2]
+            user_type = result[3]
 
-            flash("Login successful! Welcome.", "success")
+            if check_password_hash(
+                db_password,
+                password,
+            ):
 
-            if user_type == "faculty":
-                return redirect(url_for("faculty_dashboard"))
+                session.clear()
 
-            return redirect(url_for("student_dashboard"))
+                session["user_id"] = user_id
+                session["email"] = db_email
+                session["user_type"] = user_type
+
+                cur.execute(
+                    """
+                    UPDATE users
+                    SET last_login = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                    """,
+                    (user_id,),
+                )
+
+                get_db().commit()
+
+                flash(
+                    "Login successful! Welcome.",
+                    "success",
+                )
+
+                if user_type == "faculty":
+
+                    return redirect(url_for("faculty_dashboard"))
+
+                return redirect(url_for("student_dashboard"))
+
+            else:
+
+                flash(
+                    "Incorrect password.",
+                    "danger",
+                )
 
         else:
-            flash("Incorrect password.", "danger")
 
-    else:
-        flash("Email not registered.", "danger")
+            flash(
+                "Email not registered.",
+                "danger",
+            )
+
+    except Exception as e:
+
+        get_db().rollback()
+
+        print(f"Login error: {e}")
+
+        flash(
+            "Unable to process login right now.",
+            "danger",
+        )
+
+    finally:
+
+        cur.close()
 
     return redirect(url_for("home"))
 
 
 # ============================================================
-# RESET PASSWORD
+# RESET PASSWORD REQUEST
 # ============================================================
 
 
-@app.route("/reset_password", methods=["POST"])
+@app.route(
+    "/reset_password",
+    methods=["GET", "POST"],
+)
 def reset_password():
-    email = request.form["email"]
 
-    new_password = "NewPass123"
+    # --------------------------------------------------------
+    # GET:
+    # Show forgot-password page.
+    # --------------------------------------------------------
 
-    hashed_password = generate_password_hash(new_password)
+    if request.method == "GET":
+
+        return render_template("reset_password.html")
+
+    # --------------------------------------------------------
+    # POST:
+    # Process password-reset request.
+    # --------------------------------------------------------
+
+    email = (
+        request.form.get(
+            "email",
+            "",
+        )
+        .strip()
+        .lower()
+    )
+
+    if not email:
+
+        flash(
+            "Please enter your email address.",
+            "danger",
+        )
+
+        return redirect(url_for("reset_password"))
 
     cur = get_db().cursor()
 
-    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+    try:
 
-    user = cur.fetchone()
+        # ----------------------------------------------------
+        # Find active account.
+        # ----------------------------------------------------
 
-    if user:
+        cur.execute(
+            """
+            SELECT id
+            FROM users
+            WHERE LOWER(email) = %s
+              AND is_active = TRUE
+            """,
+            (email,),
+        )
+
+        user = cur.fetchone()
+
+        # ----------------------------------------------------
+        # IMPORTANT:
+        #
+        # We always return the same message regardless of
+        # whether the email exists.
+        #
+        # This prevents simple email enumeration.
+        # ----------------------------------------------------
+
+        if user:
+
+            user_id = user[0]
+
+            # ------------------------------------------------
+            # Basic cooldown:
+            #
+            # Only one reset request per account every
+            # 60 seconds.
+            # ------------------------------------------------
+
+            cur.execute(
+                """
+                SELECT id
+                FROM password_reset_tokens
+                WHERE user_id = %s
+                  AND created_at >=
+                      CURRENT_TIMESTAMP
+                      - INTERVAL '60 seconds'
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+
+            recent_request = cur.fetchone()
+
+            if not recent_request:
+
+                # --------------------------------------------
+                # Invalidate previous unused reset tokens.
+                # --------------------------------------------
+
+                cur.execute(
+                    """
+                    UPDATE password_reset_tokens
+                    SET used_at = CURRENT_TIMESTAMP
+                    WHERE user_id = %s
+                      AND used_at IS NULL
+                    """,
+                    (user_id,),
+                )
+
+                # --------------------------------------------
+                # Generate a cryptographically secure token.
+                #
+                # token_urlsafe(32) gives us 32 random bytes
+                # encoded into a URL-safe string.
+                # --------------------------------------------
+
+                raw_token = secrets.token_urlsafe(32)
+
+                # --------------------------------------------
+                # Store only the SHA-256 hash.
+                #
+                # The actual reset token is never stored in
+                # the database.
+                # --------------------------------------------
+
+                token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+                # --------------------------------------------
+                # Store token with 30-minute expiration.
+                # --------------------------------------------
+
+                cur.execute(
+                    """
+                    INSERT INTO password_reset_tokens
+                    (
+                        user_id,
+                        token_hash,
+                        expires_at
+                    )
+                    VALUES
+                    (
+                        %s,
+                        %s,
+                        CURRENT_TIMESTAMP
+                        + INTERVAL '30 minutes'
+                    )
+                    """,
+                    (
+                        user_id,
+                        token_hash,
+                    ),
+                )
+
+                # --------------------------------------------
+                # Build reset URL.
+                #
+                # APP_BASE_URL should be your Render URL in
+                # production.
+                # --------------------------------------------
+
+                base_url = os.getenv("APP_BASE_URL")
+
+                if not base_url:
+
+                    base_url = request.url_root.rstrip("/")
+
+                reset_url = f"{base_url}" f"/reset_password/" f"{quote(raw_token)}"
+
+                try:
+
+                    # ----------------------------------------
+                    # Send email.
+                    # ----------------------------------------
+
+                    send_password_reset_email(
+                        email,
+                        reset_url,
+                    )
+
+                except Exception as email_error:
+
+                    # ----------------------------------------
+                    # Email failed.
+                    #
+                    # Roll back the token creation and any
+                    # previous-token invalidation.
+                    # ----------------------------------------
+
+                    get_db().rollback()
+
+                    print("Password reset email error: " f"{email_error}")
+
+                else:
+
+                    # ----------------------------------------
+                    # Email was sent successfully.
+                    # Commit token transaction.
+                    # ----------------------------------------
+
+                    get_db().commit()
+
+        # ----------------------------------------------------
+        # Always return the same response.
+        # ----------------------------------------------------
+
+        flash(
+            "If an account with that email exists, "
+            "a password reset link has been sent.",
+            "info",
+        )
+
+    except Exception as e:
+
+        get_db().rollback()
+
+        print(f"Password reset request error: {e}")
+
+        flash(
+            "Unable to process the request right now. " "Please try again later.",
+            "danger",
+        )
+
+    finally:
+
+        cur.close()
+
+    return redirect(url_for("home"))
+
+
+# ============================================================
+# RESET PASSWORD USING TOKEN
+# ============================================================
+
+
+@app.route(
+    "/reset_password/<token>",
+    methods=["GET", "POST"],
+)
+def reset_password_with_token(token):
+
+    # --------------------------------------------------------
+    # Convert the supplied token into the hash stored in DB.
+    # --------------------------------------------------------
+
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    cur = get_db().cursor()
+
+    try:
+
+        # ----------------------------------------------------
+        # GET:
+        #
+        # We only need to check whether the token is valid.
+        # No database lock is necessary here.
+        # ----------------------------------------------------
+
+        if request.method == "GET":
+
+            cur.execute(
+                """
+                SELECT
+                    prt.id,
+                    prt.user_id
+                FROM password_reset_tokens AS prt
+                INNER JOIN users AS u
+                    ON u.id = prt.user_id
+                WHERE prt.token_hash = %s
+                  AND prt.used_at IS NULL
+                  AND prt.expires_at > CURRENT_TIMESTAMP
+                  AND u.is_active = TRUE
+                """,
+                (token_hash,),
+            )
+
+            reset_token = cur.fetchone()
+
+            if not reset_token:
+
+                flash(
+                    "This password reset link is invalid " "or has expired.",
+                    "danger",
+                )
+
+                return redirect(url_for("home"))
+
+            # ------------------------------------------------
+            # Valid token:
+            # Show new-password form.
+            # ------------------------------------------------
+
+            return render_template(
+                "reset_password_form.html",
+                token=token,
+            )
+
+        # ----------------------------------------------------
+        # POST:
+        #
+        # Lock the token row using FOR UPDATE.
+        #
+        # This prevents two simultaneous requests from
+        # successfully using the same token.
+        # ----------------------------------------------------
+
+        cur.execute(
+            """
+            SELECT
+                prt.id,
+                prt.user_id
+            FROM password_reset_tokens AS prt
+            INNER JOIN users AS u
+                ON u.id = prt.user_id
+            WHERE prt.token_hash = %s
+              AND prt.used_at IS NULL
+              AND prt.expires_at > CURRENT_TIMESTAMP
+              AND u.is_active = TRUE
+            FOR UPDATE
+            """,
+            (token_hash,),
+        )
+
+        reset_token = cur.fetchone()
+
+        if not reset_token:
+
+            get_db().rollback()
+
+            flash(
+                "This password reset link is invalid " "or has expired.",
+                "danger",
+            )
+
+            return redirect(url_for("home"))
+
+        reset_token_id = reset_token[0]
+
+        user_id = reset_token[1]
+
+        # ----------------------------------------------------
+        # Read submitted passwords.
+        # ----------------------------------------------------
+
+        new_password = request.form.get(
+            "new_password",
+            "",
+        )
+
+        confirm_password = request.form.get(
+            "confirm_password",
+            "",
+        )
+
+        # ----------------------------------------------------
+        # Password length validation.
+        # ----------------------------------------------------
+
+        if len(new_password) < 8:
+
+            get_db().rollback()
+
+            flash(
+                "Password must be at least " "8 characters long.",
+                "danger",
+            )
+
+            return render_template(
+                "reset_password_form.html",
+                token=token,
+            )
+
+        # ----------------------------------------------------
+        # Password confirmation.
+        # ----------------------------------------------------
+
+        if new_password != confirm_password:
+
+            get_db().rollback()
+
+            flash(
+                "Passwords do not match.",
+                "danger",
+            )
+
+            return render_template(
+                "reset_password_form.html",
+                token=token,
+            )
+
+        # ----------------------------------------------------
+        # Hash new password.
+        # ----------------------------------------------------
+
+        hashed_password = generate_password_hash(new_password)
+
+        # ----------------------------------------------------
+        # Update password.
+        # ----------------------------------------------------
+
         cur.execute(
             """
             UPDATE users
-            SET password = %s
-            WHERE email = %s
+            SET
+                password = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+              AND is_active = TRUE
             """,
-            (hashed_password, email),
+            (
+                hashed_password,
+                user_id,
+            ),
         )
+
+        # ----------------------------------------------------
+        # Mark the current token as used.
+        # ----------------------------------------------------
+
+        cur.execute(
+            """
+            UPDATE password_reset_tokens
+            SET used_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            """,
+            (reset_token_id,),
+        )
+
+        # ----------------------------------------------------
+        # Invalidate all other outstanding reset tokens
+        # belonging to this user.
+        # ----------------------------------------------------
+
+        cur.execute(
+            """
+            UPDATE password_reset_tokens
+            SET used_at = CURRENT_TIMESTAMP
+            WHERE user_id = %s
+              AND used_at IS NULL
+            """,
+            (user_id,),
+        )
+
+        # ----------------------------------------------------
+        # Commit password change + token invalidation
+        # atomically.
+        # ----------------------------------------------------
 
         get_db().commit()
 
         flash(
-            "Password reset successful! " "Temporary password is 'NewPass123'.",
+            "Your password has been reset successfully. "
+            "You can now log in with your new password.",
             "success",
         )
 
-    else:
-        flash("Email not found!", "danger")
+        return redirect(url_for("home"))
 
-    cur.close()
+    except Exception as e:
 
-    return redirect(url_for("home"))
+        get_db().rollback()
+
+        print("Password reset completion error: " f"{e}")
+
+        flash(
+            "Unable to reset your password right now.",
+            "danger",
+        )
+
+        return redirect(url_for("home"))
+
+    finally:
+
+        cur.close()
 
 
 # ============================================================
@@ -315,12 +955,20 @@ def reset_password():
 # ============================================================
 
 
-@app.route("/contact_us", methods=["POST"])
+@app.route(
+    "/contact_us",
+    methods=["POST"],
+)
 def contact_us():
+
     email = request.form["email"]
+
     message = request.form["message"]
 
-    flash("Thanks for contacting us! We'll get back to you soon.", "success")
+    flash(
+        "Thanks for contacting us! " "We'll get back to you soon.",
+        "success",
+    )
 
     return redirect(url_for("home"))
 
@@ -332,11 +980,17 @@ def contact_us():
 
 @app.route("/about_us")
 def about_us():
+
     message = request.args.get("message")
+
     category = request.args.get("category")
 
     if message and category:
-        flash(message, category)
+
+        flash(
+            message,
+            category,
+        )
 
     return render_template("about_us.html")
 
@@ -350,51 +1004,63 @@ def about_us():
 def faculty_dashboard():
 
     if "user_id" not in session:
-        flash("Please login as faculty to access this page.", "warning")
+
+        flash(
+            "Please login as faculty to access this page.",
+            "warning",
+        )
 
         return redirect(url_for("home"))
 
     if session.get("user_type") != "faculty":
-        flash("Access denied. This page is for faculty members only.", "danger")
+
+        flash(
+            "Access denied. " "This page is for faculty members only.",
+            "danger",
+        )
 
         return redirect(url_for("home"))
 
     cur = get_db().cursor()
 
-    cur.execute(
-        """
-        SELECT
-            id,
-            title,
-            type,
-            audience,
-            date_posted,
-            CASE
-                WHEN valid_until IS NULL
-                    THEN 'Active'
-                WHEN valid_until >= CURRENT_DATE
-                    THEN 'Active'
-                WHEN valid_until = CURRENT_DATE
-                    THEN 'Expiring'
-                ELSE 'Expired'
-            END AS status
-        FROM circulars
-        WHERE posted_by_id = %s
-        ORDER BY date_posted DESC
-        LIMIT 5
-        """,
-        (session["user_id"],),
-    )
+    try:
 
-    recent_circulars = cur.fetchall()
+        cur.execute(
+            """
+            SELECT
+                id,
+                title,
+                type,
+                audience,
+                date_posted,
+                CASE
+                    WHEN valid_until IS NULL
+                        THEN 'Active'
+                    WHEN valid_until > CURRENT_DATE
+                        THEN 'Active'
+                    WHEN valid_until = CURRENT_DATE
+                        THEN 'Expiring'
+                    ELSE 'Expired'
+                END AS status
+            FROM circulars
+            WHERE posted_by_id = %s
+            ORDER BY date_posted DESC
+            LIMIT 5
+            """,
+            (session["user_id"],),
+        )
 
-    cur.close()
+        recent_circulars = cur.fetchall()
 
-    return render_template(
-        "faculty_dashboard.html",
-        user_email=session.get("email"),
-        recent_circulars=recent_circulars,
-    )
+        return render_template(
+            "faculty_dashboard.html",
+            user_email=session.get("email"),
+            recent_circulars=recent_circulars,
+        )
+
+    finally:
+
+        cur.close()
 
 
 # ============================================================
@@ -406,75 +1072,85 @@ def faculty_dashboard():
 def student_dashboard():
 
     if "user_id" not in session:
-        flash("Please login first.", "danger")
+
+        flash(
+            "Please login first.",
+            "danger",
+        )
 
         return redirect(url_for("home"))
 
     cur = get_db().cursor()
 
-    cur.execute("""
-        SELECT
-            id,
-            title,
-            description,
-            type,
-            audience,
-            priority,
-            TO_CHAR(
-                date_posted,
-                'YYYY-MM-DD'
-            ) AS date_posted
-        FROM circulars
-        WHERE (
-            audience = 'students'
-            OR audience = 'all'
-            OR audience LIKE '%%students%%'
+    try:
+
+        cur.execute("""
+            SELECT
+                id,
+                title,
+                description,
+                type,
+                audience,
+                priority,
+                TO_CHAR(
+                    date_posted,
+                    'YYYY-MM-DD'
+                ) AS date_posted
+            FROM circulars
+            WHERE (
+                audience = 'students'
+                OR audience = 'all'
+                OR audience LIKE '%%students%%'
+            )
+            ORDER BY date_posted DESC
+            LIMIT 3
+            """)
+
+        columns = [col[0] for col in cur.description]
+
+        recent_circulars = []
+
+        for row in cur.fetchall():
+
+            circular = dict(zip(columns, row))
+
+            recent_circulars.append(circular)
+
+        cur.execute("""
+            SELECT
+                id,
+                title,
+                subject,
+                branch,
+                semester,
+                deadline,
+                total_marks
+            FROM assignments
+            WHERE status = 'active'
+            ORDER BY deadline ASC
+            LIMIT 3
+            """)
+
+        columns = [col[0] for col in cur.description]
+
+        upcoming_assignments = []
+
+        for row in cur.fetchall():
+
+            assignment = dict(zip(columns, row))
+
+            upcoming_assignments.append(assignment)
+
+        return render_template(
+            "student_dashboard.html",
+            user_email=session.get("email"),
+            recent_circulars=recent_circulars,
+            upcoming_assignments=upcoming_assignments,
         )
-        ORDER BY date_posted DESC
-        LIMIT 3
-        """)
 
-    columns = [col[0] for col in cur.description]
+    finally:
 
-    recent_circulars = []
-
-    for row in cur.fetchall():
-        circular = dict(zip(columns, row))
-
-        recent_circulars.append(circular)
-
-    cur.execute("""
-        SELECT
-            id,
-            title,
-            subject,
-            branch,
-            semester,
-            deadline,
-            total_marks
-        FROM assignments
-        WHERE status = 'active'
-        ORDER BY deadline ASC
-        LIMIT 3
-        """)
-
-    columns = [col[0] for col in cur.description]
-
-    upcoming_assignments = []
-
-    for row in cur.fetchall():
-        assignment = dict(zip(columns, row))
-
-        upcoming_assignments.append(assignment)
-
-    cur.close()
-
-    return render_template(
-        "student_dashboard.html",
-        user_email=session.get("email"),
-        recent_circulars=recent_circulars,
-        upcoming_assignments=upcoming_assignments,
-    )
+        cur.close()
 
 
 # ============================================================
@@ -486,12 +1162,20 @@ def student_dashboard():
 def students():
 
     if "user_id" not in session:
-        flash("Please login as student to access this page.", "warning")
+
+        flash(
+            "Please login as student to access this page.",
+            "warning",
+        )
 
         return redirect(url_for("home"))
 
     if session.get("user_type") != "student":
-        flash("Access denied. This page is for students only.", "danger")
+
+        flash(
+            "Access denied. " "This page is for students only.",
+            "danger",
+        )
 
         return redirect(url_for("home"))
 
@@ -508,7 +1192,10 @@ def logout():
 
     session.clear()
 
-    flash("You have been logged out successfully.", "success")
+    flash(
+        "You have been logged out successfully.",
+        "success",
+    )
 
     return redirect(url_for("home"))
 
@@ -518,18 +1205,39 @@ def logout():
 # ============================================================
 
 
-@app.route("/post_circular", methods=["POST"])
+@app.route(
+    "/post_circular",
+    methods=["POST"],
+)
 def post_circular():
 
     if not session.get("user_id") or session.get("user_type") != "faculty":
-        return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Unauthorized",
+                }
+            ),
+            401,
+        )
 
     try:
+
         title = request.form.get("title")
+
         description = request.form.get("description")
+
         circular_type = request.form.get("circular_type")
+
         audience = request.form.get("target_audience")
-        priority = request.form.get("priority", "medium")
+
+        priority = request.form.get(
+            "priority",
+            "medium",
+        )
+
         valid_until = request.form.get("valid_until")
 
         attachment = None
@@ -544,7 +1252,10 @@ def post_circular():
 
             if file and file.filename:
 
-                attachment, _, _ = upload_to_storage(file, "circulars")
+                attachment, _, _ = upload_to_storage(
+                    file,
+                    "circulars",
+                )
 
         # ----------------------------------------------------
         # Insert database record
@@ -552,70 +1263,100 @@ def post_circular():
 
         cur = get_db().cursor()
 
-        query = """
-            INSERT INTO circulars
-            (
+        try:
+
+            query = """
+                INSERT INTO circulars
+                (
+                    title,
+                    description,
+                    type,
+                    audience,
+                    priority,
+                    valid_until,
+                    attachment,
+                    date_posted,
+                    posted_by,
+                    posted_by_id
+                )
+                VALUES
+                (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s
+                )
+            """
+
+            values = (
                 title,
                 description,
-                type,
+                circular_type,
                 audience,
                 priority,
-                valid_until,
+                valid_until if valid_until else None,
                 attachment,
-                date_posted,
-                posted_by,
-                posted_by_id
+                datetime.now(),
+                session.get("email"),
+                session.get("user_id"),
             )
-            VALUES (
-                %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s
+
+            cur.execute(
+                query,
+                values,
             )
-        """
 
-        values = (
-            title,
-            description,
-            circular_type,
-            audience,
-            priority,
-            valid_until if valid_until else None,
-            attachment,
-            datetime.now(),
-            session.get("email"),
-            session.get("user_id"),
-        )
+            get_db().commit()
 
-        cur.execute(query, values)
+        finally:
 
-        get_db().commit()
-
-        cur.close()
+            cur.close()
 
         print(f"Circular inserted: {title}")
 
-        return jsonify({"success": True, "message": "Circular posted successfully"})
+        return jsonify(
+            {
+                "success": True,
+                "message": "Circular posted successfully",
+            }
+        )
 
     except Exception as e:
 
+        get_db().rollback()
+
         print(f"Error posting circular: {e}")
 
-        return jsonify({"success": False, "message": str(e)}), 500
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": str(e),
+                }
+            ),
+            500,
+        )
 
 
 # ============================================================
-# DOWNLOAD CIRCULARS
+# DOWNLOAD CIRCULAR
 # ============================================================
 
 
 @app.route("/download_circular/<int:circular_id>")
 def download_circular(circular_id):
+
     if "user_id" not in session:
-        flash("Please login first.", "danger")
+
+        flash(
+            "Please login first.",
+            "danger",
+        )
+
         return redirect(url_for("home"))
 
     cur = get_db().cursor()
 
     try:
+
         cur.execute(
             """
             SELECT attachment
@@ -628,31 +1369,42 @@ def download_circular(circular_id):
         result = cur.fetchone()
 
         if not result or not result[0]:
-            flash("Attachment not found.", "danger")
+
+            flash(
+                "Attachment not found.",
+                "danger",
+            )
+
             return redirect(url_for("announcements"))
 
         storage_path = result[0]
 
-        # Download from Supabase Storage
         file_bytes = download_from_storage(storage_path)
 
-        # Get original filename
         original_filename = os.path.basename(storage_path)
 
         return send_file(
             io.BytesIO(file_bytes),
             as_attachment=False,
             download_name=original_filename,
-            mimetype=mimetypes.guess_type(original_filename)[0]
-            or "application/octet-stream",
+            mimetype=(
+                mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
+            ),
         )
 
     except Exception as e:
-        print(f"Error downloading circular attachment: {e}")
-        flash("Unable to open attachment.", "danger")
+
+        print("Error downloading circular " f"attachment: {e}")
+
+        flash(
+            "Unable to open attachment.",
+            "danger",
+        )
+
         return redirect(url_for("announcements"))
 
     finally:
+
         cur.close()
 
 
@@ -664,6 +1416,15 @@ def download_circular(circular_id):
 @app.route("/announcements")
 def announcements():
 
+    if "user_id" not in session:
+
+        flash(
+            "Please login first.",
+            "danger",
+        )
+
+        return redirect(url_for("home"))
+
     cur = get_db().cursor()
 
     try:
@@ -671,20 +1432,28 @@ def announcements():
         today = datetime.now().date()
 
         print("=" * 60)
+
         print("ANNOUNCEMENTS PAGE DEBUG - START")
+
         print(f"Today's date: {today}")
 
         cur.execute("SELECT to_regclass('public.circulars')")
 
-        table_exists = cur.fetchone()
+        table_exists_result = cur.fetchone()
 
-        print("Circulars table exists: " f"{table_exists is not None}")
+        table_exists = table_exists_result and table_exists_result[0] is not None
+
+        print("Circulars table exists: " f"{table_exists}")
 
         if not table_exists:
 
-            print("ERROR: circulars table does not exist!")
+            print("ERROR: circulars table " "does not exist!")
 
-            return render_template("announcements.html", circulars=[], today=today)
+            return render_template(
+                "announcements.html",
+                circulars=[],
+                today=today,
+            )
 
         cur.execute("SELECT COUNT(*) FROM circulars")
 
@@ -694,9 +1463,13 @@ def announcements():
 
         if count == 0:
 
-            print("No circulars found - showing empty state")
+            print("No circulars found - " "showing empty state")
 
-            return render_template("announcements.html", circulars=[], today=today)
+            return render_template(
+                "announcements.html",
+                circulars=[],
+                today=today,
+            )
 
         query = """
             SELECT
@@ -730,13 +1503,18 @@ def announcements():
 
                 try:
 
-                    if isinstance(circular["valid_until"], str):
+                    if isinstance(
+                        circular["valid_until"],
+                        str,
+                    ):
 
                         valid_date = datetime.strptime(
-                            circular["valid_until"], "%Y-%m-%d"
+                            circular["valid_until"],
+                            "%Y-%m-%d",
                         ).date()
 
                     else:
+
                         valid_date = circular["valid_until"]
 
                     circular["is_active"] = 1 if valid_date >= today else 0
@@ -753,7 +1531,11 @@ def announcements():
 
             circulars.append(circular)
 
-        return render_template("announcements.html", circulars=circulars, today=today)
+        return render_template(
+            "announcements.html",
+            circulars=circulars,
+            today=today,
+        )
 
     except Exception as e:
 
@@ -763,9 +1545,14 @@ def announcements():
 
         traceback.print_exc()
 
-        return render_template("announcements.html", circulars=[], today=today)
+        return render_template(
+            "announcements.html",
+            circulars=[],
+            today=today,
+        )
 
     finally:
+
         cur.close()
 
 
@@ -776,6 +1563,13 @@ def announcements():
 
 @app.route("/get_circular/<int:circular_id>")
 def get_circular(circular_id):
+
+    if "user_id" not in session:
+
+        return (
+            jsonify({"error": "Unauthorized"}),
+            401,
+        )
 
     cur = get_db().cursor()
 
@@ -813,15 +1607,22 @@ def get_circular(circular_id):
 
             return jsonify(circular)
 
-        return jsonify({"error": "Circular not found"}), 404
+        return (
+            jsonify({"error": "Circular not found"}),
+            404,
+        )
 
     except Exception as e:
 
         print(f"Error in get_circular: {e}")
 
-        return jsonify({"error": str(e)}), 500
+        return (
+            jsonify({"error": str(e)}),
+            500,
+        )
 
     finally:
+
         cur.close()
 
 
@@ -832,6 +1633,13 @@ def get_circular(circular_id):
 
 @app.route("/get_recent_circulars")
 def get_recent_circulars():
+
+    if "user_id" not in session:
+
+        return (
+            jsonify({"circulars": []}),
+            401,
+        )
 
     cur = get_db().cursor()
 
@@ -862,6 +1670,7 @@ def get_recent_circulars():
             item = dict(zip(columns, row))
 
             if item["description"] and len(item["description"]) > 100:
+
                 item["description"] = item["description"][:100] + "..."
 
             recent.append(item)
@@ -873,6 +1682,7 @@ def get_recent_circulars():
         return jsonify({"circulars": []})
 
     finally:
+
         cur.close()
 
 
@@ -904,6 +1714,15 @@ def inject_current_year():
 
 @app.route("/assignments")
 def assignments():
+
+    if "user_id" not in session:
+
+        flash(
+            "Please login first.",
+            "danger",
+        )
+
+        return redirect(url_for("home"))
 
     cur = get_db().cursor()
 
@@ -938,15 +1757,22 @@ def assignments():
 
             assignments_list.append(assignment)
 
-        return render_template("assignments.html", assignments=assignments_list)
+        return render_template(
+            "assignments.html",
+            assignments=assignments_list,
+        )
 
     except Exception as e:
 
         print(f"Error: {e}")
 
-        return render_template("assignments.html", assignments=[])
+        return render_template(
+            "assignments.html",
+            assignments=[],
+        )
 
     finally:
+
         cur.close()
 
 
@@ -955,30 +1781,52 @@ def assignments():
 # ============================================================
 
 
-@app.route("/post_assignment", methods=["POST"])
+@app.route(
+    "/post_assignment",
+    methods=["POST"],
+)
 def post_assignment():
 
     if not session.get("user_id") or session.get("user_type") != "faculty":
-        return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Unauthorized",
+                }
+            ),
+            401,
+        )
 
     try:
 
         title = request.form.get("title")
+
         description = request.form.get("description")
+
         branch = request.form.get("branch")
+
         semester = request.form.get("semester")
+
         subject = request.form.get("subject")
 
-        total_questions = request.form.get("total_questions", 5)
+        total_questions = request.form.get(
+            "total_questions",
+            5,
+        )
 
         deadline = request.form.get("deadline")
 
-        total_marks = request.form.get("total_marks", 100)
+        total_marks = request.form.get(
+            "total_marks",
+            100,
+        )
 
         attachment = None
 
         # ----------------------------------------------------
-        # Upload assignment attachment to Supabase Storage
+        # Upload assignment attachment
         # ----------------------------------------------------
 
         if "attachment" in request.files:
@@ -987,17 +1835,45 @@ def post_assignment():
 
             if file and file.filename:
 
-                attachment, _, _ = upload_to_storage(file, "assignments")
+                attachment, _, _ = upload_to_storage(
+                    file,
+                    "assignments",
+                )
 
         # ----------------------------------------------------
-        # Insert assignment into database
+        # Insert assignment
         # ----------------------------------------------------
 
         cur = get_db().cursor()
 
-        query = """
-            INSERT INTO assignments
-            (
+        try:
+
+            query = """
+                INSERT INTO assignments
+                (
+                    title,
+                    description,
+                    branch,
+                    semester,
+                    subject,
+                    total_questions,
+                    deadline,
+                    total_marks,
+                    attachment,
+                    date_posted,
+                    created_by,
+                    created_by_id,
+                    status
+                )
+                VALUES
+                (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s
+                )
+            """
+
+            values = (
                 title,
                 description,
                 branch,
@@ -1007,47 +1883,45 @@ def post_assignment():
                 deadline,
                 total_marks,
                 attachment,
-                date_posted,
-                created_by,
-                created_by_id,
-                status
+                datetime.now(),
+                session.get("email"),
+                session.get("user_id"),
+                "active",
             )
-            VALUES (
-                %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s,
-                %s, %s, %s
-            )
-        """
 
-        values = (
-            title,
-            description,
-            branch,
-            semester,
-            subject,
-            total_questions,
-            deadline,
-            total_marks,
-            attachment,
-            datetime.now(),
-            session.get("email"),
-            session.get("user_id"),
-            "active",
+            cur.execute(
+                query,
+                values,
+            )
+
+            get_db().commit()
+
+        finally:
+
+            cur.close()
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Assignment posted successfully",
+            }
         )
-
-        cur.execute(query, values)
-
-        get_db().commit()
-
-        cur.close()
-
-        return jsonify({"success": True, "message": "Assignment posted successfully"})
 
     except Exception as e:
 
+        get_db().rollback()
+
         print(f"Error posting assignment: {e}")
 
-        return jsonify({"success": False, "message": str(e)}), 500
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": str(e),
+                }
+            ),
+            500,
+        )
 
 
 # ============================================================
@@ -1057,6 +1931,13 @@ def post_assignment():
 
 @app.route("/get_assignment/<int:assignment_id>")
 def get_assignment(assignment_id):
+
+    if "user_id" not in session:
+
+        return (
+            jsonify({"error": "Unauthorized"}),
+            401,
+        )
 
     cur = get_db().cursor()
 
@@ -1097,13 +1978,20 @@ def get_assignment(assignment_id):
 
             return jsonify(assignment)
 
-        return jsonify({"error": "Assignment not found"}), 404
+        return (
+            jsonify({"error": "Assignment not found"}),
+            404,
+        )
 
     except Exception as e:
 
-        return jsonify({"error": str(e)}), 500
+        return (
+            jsonify({"error": str(e)}),
+            500,
+        )
 
     finally:
+
         cur.close()
 
 
@@ -1114,13 +2002,20 @@ def get_assignment(assignment_id):
 
 @app.route("/download_assignment/<int:assignment_id>")
 def download_assignment(assignment_id):
+
     if "user_id" not in session:
-        flash("Please login first.", "danger")
+
+        flash(
+            "Please login first.",
+            "danger",
+        )
+
         return redirect(url_for("home"))
 
     cur = get_db().cursor()
 
     try:
+
         cur.execute(
             """
             SELECT attachment
@@ -1133,7 +2028,12 @@ def download_assignment(assignment_id):
         result = cur.fetchone()
 
         if not result or not result[0]:
-            flash("Attachment not found.", "danger")
+
+            flash(
+                "Attachment not found.",
+                "danger",
+            )
+
             return redirect(url_for("assignments"))
 
         storage_path = result[0]
@@ -1146,16 +2046,24 @@ def download_assignment(assignment_id):
             io.BytesIO(file_bytes),
             as_attachment=False,
             download_name=original_filename,
-            mimetype=mimetypes.guess_type(original_filename)[0]
-            or "application/octet-stream",
+            mimetype=(
+                mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
+            ),
         )
 
     except Exception as e:
-        print(f"Error downloading assignment attachment: {e}")
-        flash("Unable to open attachment.", "danger")
+
+        print("Error downloading assignment " f"attachment: {e}")
+
+        flash(
+            "Unable to open attachment.",
+            "danger",
+        )
+
         return redirect(url_for("assignments"))
 
     finally:
+
         cur.close()
 
 
@@ -1164,12 +2072,18 @@ def download_assignment(assignment_id):
 # ============================================================
 
 
-@app.route("/upload_marks", methods=["GET", "POST"])
+@app.route(
+    "/upload_marks",
+    methods=["GET", "POST"],
+)
 def upload_marks():
 
     if "user_id" not in session or session.get("user_type") != "faculty":
 
-        flash("Please login as faculty to access this page.", "warning")
+        flash(
+            "Please login as faculty " "to access this page.",
+            "warning",
+        )
 
         return redirect(url_for("home"))
 
@@ -1189,15 +2103,44 @@ def upload_marks():
 
             subject_name = request.form.get("subject_name")
 
-            marks_obtained = request.form.get("marks_obtained", 0)
+            marks_obtained = request.form.get(
+                "marks_obtained",
+                0,
+            )
 
-            max_marks = request.form.get("max_marks", 30)
+            max_marks = request.form.get(
+                "max_marks",
+                30,
+            )
 
             cur = get_db().cursor()
 
-            query = """
-                INSERT INTO internal_marks
-                (
+            try:
+
+                query = """
+                    INSERT INTO internal_marks
+                    (
+                        pin,
+                        student_name,
+                        branch,
+                        semester,
+                        subject_code,
+                        subject_name,
+                        marks_obtained,
+                        max_marks,
+                        uploaded_by,
+                        uploaded_by_id,
+                        date_uploaded
+                    )
+                    VALUES
+                    (
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s,
+                        %s
+                    )
+                """
+
+                values = (
                     pin,
                     student_name,
                     branch,
@@ -1206,44 +2149,37 @@ def upload_marks():
                     subject_name,
                     marks_obtained,
                     max_marks,
-                    uploaded_by,
-                    uploaded_by_id,
-                    date_uploaded
+                    session.get("email"),
+                    session.get("user_id"),
+                    datetime.now(),
                 )
-                VALUES (
-                    %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s,
-                    %s
-                )
-            """
 
-            values = (
-                pin,
-                student_name,
-                branch,
-                semester,
-                subject_code,
-                subject_name,
-                marks_obtained,
-                max_marks,
-                session.get("email"),
-                session.get("user_id"),
-                datetime.now(),
+                cur.execute(
+                    query,
+                    values,
+                )
+
+                get_db().commit()
+
+            finally:
+
+                cur.close()
+
+            flash(
+                "Marks uploaded successfully!",
+                "success",
             )
-
-            cur.execute(query, values)
-
-            get_db().commit()
-
-            cur.close()
-
-            flash("Marks uploaded successfully!", "success")
 
             return redirect(url_for("view_marks"))
 
         except Exception as e:
 
-            flash(f"Error: {str(e)}", "danger")
+            get_db().rollback()
+
+            flash(
+                f"Error: {str(e)}",
+                "danger",
+            )
 
             return redirect(url_for("upload_marks"))
 
@@ -1260,48 +2196,168 @@ def view_marks():
 
     if "user_id" not in session:
 
-        flash("Please login first.", "danger")
+        flash(
+            "Please login first.",
+            "danger",
+        )
 
         return redirect(url_for("home"))
 
     cur = get_db().cursor()
 
-    branch = request.args.get("branch", "all")
+    try:
 
-    semester = request.args.get("semester", "all")
+        branch = request.args.get(
+            "branch",
+            "all",
+        )
 
-    pin = request.args.get("pin", None)
+        semester = request.args.get(
+            "semester",
+            "all",
+        )
 
-    if pin:
+        pin = request.args.get(
+            "pin",
+            None,
+        )
+
+        if pin:
+
+            query = """
+                SELECT *
+                FROM internal_marks
+                WHERE pin = %s
+                ORDER BY id ASC
+            """
+
+            params = [pin]
+
+            print(f"PIN search: {pin}")
+
+        else:
+
+            query = """
+                SELECT *
+                FROM internal_marks
+                WHERE 1=1
+            """
+
+            params = []
+
+            if session.get("user_type") == "faculty":
+
+                query += """
+                    AND uploaded_by_id = %s
+                """
+
+                params.append(session["user_id"])
+
+            if branch != "all":
+
+                query += """
+                    AND branch = %s
+                """
+
+                params.append(branch)
+
+            if semester != "all":
+
+                query += """
+                    AND semester = %s
+                """
+
+                params.append(semester)
+
+            query += """
+                ORDER BY date_uploaded DESC
+            """
+
+        print(f"Query: {query}")
+
+        print(f"Params: {params}")
+
+        cur.execute(
+            query,
+            params,
+        )
+
+        columns = [col[0] for col in cur.description]
+
+        marks_list = []
+
+        for row in cur.fetchall():
+
+            mark = dict(zip(columns, row))
+
+            if mark["date_uploaded"] and isinstance(
+                mark["date_uploaded"],
+                datetime,
+            ):
+
+                mark["date_uploaded"] = mark["date_uploaded"].strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+
+            marks_list.append(mark)
+
+        print("Total records found: " f"{len(marks_list)}")
+
+        return render_template(
+            "view_marks.html",
+            marks_list=marks_list,
+            current_branch=branch,
+            current_semester=semester,
+        )
+
+    finally:
+
+        cur.close()
+
+
+# ============================================================
+# STUDY MATERIALS
+# ============================================================
+
+
+@app.route("/study_materials")
+def study_materials():
+
+    if "user_id" not in session:
+
+        flash(
+            "Please login first.",
+            "danger",
+        )
+
+        return redirect(url_for("home"))
+
+    cur = get_db().cursor()
+
+    try:
+
+        branch = request.args.get(
+            "branch",
+            "all",
+        )
+
+        semester = request.args.get(
+            "semester",
+            "all",
+        )
+
+        search = request.args.get(
+            "search",
+            "",
+        )
 
         query = """
             SELECT *
-            FROM internal_marks
-            WHERE pin = %s
-            ORDER BY id ASC
-        """
-
-        params = [pin]
-
-        print(f"PIN search: {pin}")
-
-    else:
-
-        query = """
-            SELECT *
-            FROM internal_marks
+            FROM study_materials
             WHERE 1=1
         """
 
         params = []
-
-        if session.get("user_type") == "faculty":
-
-            query += """
-                AND uploaded_by_id = %s
-            """
-
-            params.append(session["user_id"])
 
         if branch != "all":
 
@@ -1319,145 +2375,71 @@ def view_marks():
 
             params.append(semester)
 
+        if search:
+
+            query += """
+                AND (
+                    title ILIKE %s
+                    OR description ILIKE %s
+                    OR filename ILIKE %s
+                    OR subject_name ILIKE %s
+                )
+            """
+
+            search_term = f"%{search}%"
+
+            params.extend(
+                [
+                    search_term,
+                    search_term,
+                    search_term,
+                    search_term,
+                ]
+            )
+
         query += """
             ORDER BY date_uploaded DESC
         """
 
-    print(f"Query: {query}")
-
-    print(f"Params: {params}")
-
-    cur.execute(query, params)
-
-    columns = [col[0] for col in cur.description]
-
-    marks_list = []
-
-    for row in cur.fetchall():
-
-        mark = dict(zip(columns, row))
-
-        if mark["date_uploaded"] and isinstance(mark["date_uploaded"], datetime):
-
-            mark["date_uploaded"] = mark["date_uploaded"].strftime("%Y-%m-%d %H:%M:%S")
-
-        marks_list.append(mark)
-
-    print(f"Total records found: " f"{len(marks_list)}")
-
-    cur.close()
-
-    return render_template(
-        "view_marks.html",
-        marks_list=marks_list,
-        current_branch=branch,
-        current_semester=semester,
-    )
-
-
-# ============================================================
-# STUDY MATERIALS
-# ============================================================
-
-
-@app.route("/study_materials")
-def study_materials():
-
-    if "user_id" not in session:
-
-        flash("Please login first.", "danger")
-
-        return redirect(url_for("home"))
-
-    cur = get_db().cursor()
-
-    branch = request.args.get("branch", "all")
-
-    semester = request.args.get("semester", "all")
-
-    search = request.args.get("search", "")
-
-    query = """
-        SELECT *
-        FROM study_materials
-        WHERE 1=1
-    """
-
-    params = []
-
-    if branch != "all":
-
-        query += """
-            AND branch = %s
-        """
-
-        params.append(branch)
-
-    if semester != "all":
-
-        query += """
-            AND semester = %s
-        """
-
-        params.append(semester)
-
-    if search:
-
-        query += """
-            AND (
-                title ILIKE %s
-                OR description ILIKE %s
-                OR filename ILIKE %s
-                OR subject_name ILIKE %s
-            )
-        """
-
-        search_term = f"%{search}%"
-
-        params.extend(
-            [
-                search_term,
-                search_term,
-                search_term,
-                search_term,
-            ]
+        cur.execute(
+            query,
+            params,
         )
 
-    query += """
-        ORDER BY date_uploaded DESC
-    """
+        columns = [col[0] for col in cur.description]
 
-    cur.execute(query, params)
+        materials = []
 
-    columns = [col[0] for col in cur.description]
+        for row in cur.fetchall():
 
-    materials = []
+            material = dict(zip(columns, row))
 
-    for row in cur.fetchall():
+            if material["date_uploaded"] and isinstance(
+                material["date_uploaded"],
+                datetime,
+            ):
 
-        material = dict(zip(columns, row))
+                material["date_uploaded"] = material["date_uploaded"].strftime(
+                    "%Y-%m-%d"
+                )
 
-        if material["date_uploaded"] and isinstance(
-            material["date_uploaded"], datetime
-        ):
+            elif material["date_uploaded"]:
 
-            material["date_uploaded"] = material["date_uploaded"].strftime("%Y-%m-%d")
+                material["date_uploaded"] = str(material["date_uploaded"])
 
-        elif material["date_uploaded"]:
+            materials.append(material)
 
-            material["date_uploaded"] = str(material["date_uploaded"])
+        return render_template(
+            "view_study_materials.html",
+            materials=materials,
+            current_branch=branch,
+            current_semester=semester,
+            search_term=search,
+        )
 
-        materials.append(material)
+    finally:
 
-    cur.close()
-
-    return render_template(
-        "view_study_materials.html",
-        materials=materials,
-        current_branch=branch,
-        current_semester=semester,
-        search_term=search,
-    )
+        cur.close()
 
 
 # ============================================================
@@ -1465,12 +2447,18 @@ def study_materials():
 # ============================================================
 
 
-@app.route("/upload_study_material", methods=["GET", "POST"])
+@app.route(
+    "/upload_study_material",
+    methods=["GET", "POST"],
+)
 def upload_study_material():
 
     if "user_id" not in session or session.get("user_type") != "faculty":
 
-        flash("Please login as faculty to access this page.", "warning")
+        flash(
+            "Please login as faculty " "to access this page.",
+            "warning",
+        )
 
         return redirect(url_for("home"))
 
@@ -1496,7 +2484,10 @@ def upload_study_material():
 
             if "file" not in request.files:
 
-                flash("No file selected", "danger")
+                flash(
+                    "No file selected",
+                    "danger",
+                )
 
                 return redirect(url_for("upload_study_material"))
 
@@ -1504,7 +2495,10 @@ def upload_study_material():
 
             if not file or not file.filename:
 
-                flash("No file selected", "danger")
+                flash(
+                    "No file selected",
+                    "danger",
+                )
 
                 return redirect(url_for("upload_study_material"))
 
@@ -1512,8 +2506,13 @@ def upload_study_material():
             # Upload to Supabase Storage
             # ------------------------------------------------
 
-            storage_path, file_size, file_type = upload_to_storage(
-                file, "study_materials"
+            (
+                storage_path,
+                file_size,
+                file_type,
+            ) = upload_to_storage(
+                file,
+                "study_materials",
             )
 
             original_filename = file.filename
@@ -1524,61 +2523,77 @@ def upload_study_material():
 
             cur = get_db().cursor()
 
-            query = """
-                INSERT INTO study_materials
-                (
+            try:
+
+                query = """
+                    INSERT INTO study_materials
+                    (
+                        title,
+                        description,
+                        filename,
+                        original_filename,
+                        file_size,
+                        file_type,
+                        branch,
+                        semester,
+                        subject_code,
+                        subject_name,
+                        uploaded_by,
+                        uploaded_by_id,
+                        date_uploaded
+                    )
+                    VALUES
+                    (
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s
+                    )
+                """
+
+                values = (
                     title,
                     description,
-                    filename,
+                    storage_path,
                     original_filename,
                     file_size,
                     file_type,
                     branch,
-                    semester,
+                    semester if semester else None,
                     subject_code,
                     subject_name,
-                    uploaded_by,
-                    uploaded_by_id,
-                    date_uploaded
+                    session.get("email"),
+                    session.get("user_id"),
+                    datetime.now(),
                 )
-                VALUES (
-                    %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s,
-                    %s, %s, %s
-                )
-            """
 
-            values = (
-                title,
-                description,
-                storage_path,
-                original_filename,
-                file_size,
-                file_type,
-                branch,
-                semester if semester else None,
-                subject_code,
-                subject_name,
-                session.get("email"),
-                session.get("user_id"),
-                datetime.now(),
+                cur.execute(
+                    query,
+                    values,
+                )
+
+                get_db().commit()
+
+            finally:
+
+                cur.close()
+
+            flash(
+                "Study material uploaded successfully!",
+                "success",
             )
-
-            cur.execute(query, values)
-
-            get_db().commit()
-
-            cur.close()
-
-            flash("Study material uploaded successfully!", "success")
 
             return redirect(url_for("study_materials"))
 
         except Exception as e:
 
-            print(f"Error uploading study material: {e}")
+            get_db().rollback()
 
-            flash(f"Error uploading file: {str(e)}", "danger")
+            print("Error uploading study " f"material: {e}")
+
+            flash(
+                f"Error uploading file: {str(e)}",
+                "danger",
+            )
 
             return redirect(url_for("upload_study_material"))
 
@@ -1595,84 +2610,90 @@ def download_study_material(material_id):
 
     if "user_id" not in session:
 
-        flash("Please login first.", "danger")
+        flash(
+            "Please login first.",
+            "danger",
+        )
 
         return redirect(url_for("home"))
 
     cur = get_db().cursor()
 
-    cur.execute(
-        """
-        SELECT
-            filename,
-            original_filename
-        FROM study_materials
-        WHERE id = %s
-        """,
-        (material_id,),
-    )
-
-    result = cur.fetchone()
-
-    if not result:
-
-        cur.close()
-
-        flash("Material not found", "danger")
-
-        return redirect(url_for("study_materials"))
-
-    storage_path = result[0]
-    original_filename = result[1]
-
-    # --------------------------------------------------------
-    # Download from Supabase Storage
-    # --------------------------------------------------------
-
     try:
 
-        file_bytes = download_from_storage(storage_path)
+        cur.execute(
+            """
+            SELECT
+                filename,
+                original_filename
+            FROM study_materials
+            WHERE id = %s
+            """,
+            (material_id,),
+        )
 
-    except Exception as e:
+        result = cur.fetchone()
 
-        print(f"Error downloading from Supabase Storage: {e}")
+        if not result:
+
+            flash(
+                "Material not found",
+                "danger",
+            )
+
+            return redirect(url_for("study_materials"))
+
+        storage_path = result[0]
+
+        original_filename = result[1]
+
+        # ----------------------------------------------------
+        # Download from Supabase Storage
+        # ----------------------------------------------------
+
+        try:
+
+            file_bytes = download_from_storage(storage_path)
+
+        except Exception as e:
+
+            print("Error downloading from " "Supabase Storage: " f"{e}")
+
+            flash(
+                "File not found in " "Supabase Storage.",
+                "danger",
+            )
+
+            return redirect(url_for("study_materials"))
+
+        # ----------------------------------------------------
+        # Increment download count
+        # ----------------------------------------------------
+
+        cur.execute(
+            """
+            UPDATE study_materials
+            SET download_count =
+                download_count + 1
+            WHERE id = %s
+            """,
+            (material_id,),
+        )
+
+        get_db().commit()
+
+        return send_file(
+            io.BytesIO(file_bytes),
+            as_attachment=True,
+            download_name=original_filename,
+            mimetype=(
+                mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
+            ),
+        )
+
+    finally:
 
         cur.close()
-
-        flash("File not found in Supabase Storage.", "danger")
-
-        return redirect(url_for("study_materials"))
-
-    # --------------------------------------------------------
-    # Increment download count
-    # --------------------------------------------------------
-
-    cur.execute(
-        """
-        UPDATE study_materials
-        SET download_count =
-            download_count + 1
-        WHERE id = %s
-        """,
-        (material_id,),
-    )
-
-    get_db().commit()
-
-    cur.close()
-
-    # --------------------------------------------------------
-    # Send file to browser
-    # --------------------------------------------------------
-
-    return send_file(
-        io.BytesIO(file_bytes),
-        as_attachment=True,
-        download_name=original_filename,
-        mimetype=(
-            mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
-        ),
-    )
 
 
 # ============================================================
@@ -1680,63 +2701,111 @@ def download_study_material(material_id):
 # ============================================================
 
 
-@app.route("/delete_study_material/<int:material_id>", methods=["POST"])
+@app.route(
+    "/delete_study_material/<int:material_id>",
+    methods=["POST"],
+)
 def delete_study_material(material_id):
 
     if "user_id" not in session or session.get("user_type") != "faculty":
 
-        return jsonify({"success": False, "message": "Unauthorized"}), 401
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Unauthorized",
+                }
+            ),
+            401,
+        )
 
     cur = get_db().cursor()
 
-    # --------------------------------------------------------
-    # Find Storage path
-    # --------------------------------------------------------
+    try:
 
-    cur.execute(
-        """
-        SELECT filename
-        FROM study_materials
-        WHERE id = %s
-        AND uploaded_by_id = %s
-        """,
-        (material_id, session["user_id"]),
-    )
+        # ----------------------------------------------------
+        # Find Storage path
+        # ----------------------------------------------------
 
-    result = cur.fetchone()
+        cur.execute(
+            """
+            SELECT filename
+            FROM study_materials
+            WHERE id = %s
+              AND uploaded_by_id = %s
+            """,
+            (
+                material_id,
+                session["user_id"],
+            ),
+        )
 
-    if not result:
+        result = cur.fetchone()
+
+        if not result:
+
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Material not found",
+                    }
+                ),
+                404,
+            )
+
+        storage_path = result[0]
+
+        # ----------------------------------------------------
+        # Delete database record
+        # ----------------------------------------------------
+
+        cur.execute(
+            """
+            DELETE FROM study_materials
+            WHERE id = %s
+              AND uploaded_by_id = %s
+            """,
+            (
+                material_id,
+                session["user_id"],
+            ),
+        )
+
+        get_db().commit()
+
+        # ----------------------------------------------------
+        # Delete file from Supabase Storage
+        # ----------------------------------------------------
+
+        delete_from_storage(storage_path)
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Material deleted successfully",
+            }
+        )
+
+    except Exception as e:
+
+        get_db().rollback()
+
+        print(f"Error deleting study material: {e}")
+
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Unable to delete material.",
+                }
+            ),
+            500,
+        )
+
+    finally:
 
         cur.close()
-
-        return jsonify({"success": False, "message": "Material not found"}), 404
-
-    storage_path = result[0]
-
-    # --------------------------------------------------------
-    # Delete database record
-    # --------------------------------------------------------
-
-    cur.execute(
-        """
-        DELETE FROM study_materials
-        WHERE id = %s
-        AND uploaded_by_id = %s
-        """,
-        (material_id, session["user_id"]),
-    )
-
-    get_db().commit()
-
-    cur.close()
-
-    # --------------------------------------------------------
-    # Delete file from Supabase Storage
-    # --------------------------------------------------------
-
-    delete_from_storage(storage_path)
-
-    return jsonify({"success": True, "message": "Material deleted successfully"})
 
 
 # ============================================================
@@ -1744,4 +2813,8 @@ def delete_study_material(material_id):
 # ============================================================
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+
+    app.run(
+        debug=True,
+        port=5000,
+    )

@@ -2006,44 +2006,24 @@
                                     <i class="fas fa-envelope text-muted"></i>
                                 </span>
                                 <input type="email" name="email" class="form-control" id="resetEmail" required
-                                    placeholder="Enter your email" style="border-left: none;">
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="resetNewPassword" class="form-label fw-600" style="color: var(--navy-900);">New
-                                Password</label>
-                            <div class="input-group">
-                                <span class="input-group-text" style="background: transparent; border-right: none;">
-                                    <i class="fas fa-key text-muted"></i>
-                                </span>
-                                <input type="password" name="new_password" class="form-control" id="resetNewPassword"
-                                    required placeholder="Enter your new password" style="border-left: none;">
-                            </div>
-                            <div class="form-text small text-muted">
-                                <i class="fas fa-shield-alt me-1"></i> Create a strong password with
-                                at least 8 characters
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="resetConfirmPassword" class="form-label fw-600"
-                                style="color: var(--navy-900);">Confirm New Password</label>
-                            <div class="input-group">
-                                <span class="input-group-text" style="background: transparent; border-right: none;">
-                                    <i class="fas fa-lock text-muted"></i>
-                                </span>
-                                <input type="password" name="confirm_password" class="form-control"
-                                    id="resetConfirmPassword" required placeholder="Re-enter your new password"
+                                    autocomplete="email" placeholder="Enter your registered email"
                                     style="border-left: none;">
                             </div>
-                            <div id="resetPasswordMatchMessage" class="form-text small"></div>
+                        </div>
+
+                        <div class="mt-3 p-3"
+                            style="background-color: rgba(13,71,161,0.05); border: 1px solid rgba(13,71,161,0.1); border-radius: 8px;">
+                            <p class="small text-muted mb-0">
+                                <i class="fas fa-envelope-open-text me-2" style="color: var(--navy-700);"></i>
+                                Enter your registered email address and we’ll send you a secure password reset link.
+                                The link will expire after 30 minutes and can only be used once.
+                            </p>
                         </div>
 
                         <div class="d-grid gap-2 mt-4">
                             <button type="submit" class="btn py-2"
                                 style="background: linear-gradient(135deg, var(--navy-700), var(--navy-900)); color: white; border: none; border-radius: 8px; font-weight: 600;">
-                                <i class="fas fa-sync-alt me-2"></i> Reset Password
+                                <i class="fas fa-paper-plane me-2"></i> Send Reset Link
                             </button>
                             <button type="button" class="btn py-2"
                                 style="background: transparent; color: var(--navy-900); border: 2px solid rgba(13,71,161,0.2); border-radius: 8px; font-weight: 600;"
@@ -2057,8 +2037,9 @@
                     <div class="mt-4 p-3"
                         style="background-color: rgba(13,71,161,0.05); border: 1px solid rgba(13,71,161,0.1); border-radius: 8px;">
                         <p class="small text-muted mb-0">
-                            <i class="fas fa-info-circle me-2" style="color: var(--navy-700);"></i>
-                            This will set a new password for your account. Please remember to save it securely.
+                            <i class="fas fa-shield-alt me-2" style="color: var(--navy-700);"></i>
+                            For your security, we never display or send your password directly.
+                            You’ll create a new password using the secure link sent to your email.
                         </p>
                     </div>
                 </div>
@@ -2109,57 +2090,21 @@
                 });
             }
 
-            /* --- Reset password match --- */
-            const newPasswordField = document.getElementById('resetNewPassword');
-            const resetConfirmPasswordField = document.getElementById('resetConfirmPassword');
-            const resetMessageElement = document.getElementById('resetPasswordMatchMessage');
-
-            if (resetConfirmPasswordField && newPasswordField) {
-                resetConfirmPasswordField.addEventListener('input', function () {
-                    const newPassword = newPasswordField.value;
-                    const confirmPassword = this.value;
-
-                    if (confirmPassword.length === 0) {
-                        resetMessageElement.textContent = '';
-                        resetMessageElement.style.color = '';
-                    } else if (newPassword === confirmPassword) {
-                        resetMessageElement.innerHTML = '<i class="fas fa-check-circle me-1" style="color: #28a745;"></i> Passwords match';
-                        resetMessageElement.style.color = '#28a745';
-                    } else {
-                        resetMessageElement.innerHTML = '<i class="fas fa-exclamation-circle me-1" style="color: #dc3545;"></i> Passwords do not match';
-                        resetMessageElement.style.color = '#dc3545';
-                    }
-                });
-
-                newPasswordField.addEventListener('input', function () {
-                    if (resetConfirmPasswordField.value.length > 0) {
-                        resetConfirmPasswordField.dispatchEvent(new Event('input'));
-                    }
-                });
-            }
-
-            /* --- Reset form submit validation --- */
+            /* --- Password reset request form validation --- */
             const resetForm = document.getElementById('resetForm');
             if (resetForm) {
                 resetForm.addEventListener('submit', function (e) {
-                    const newPassword = document.getElementById('resetNewPassword').value;
-                    const confirmPassword = document.getElementById('resetConfirmPassword').value;
-                    const email = document.getElementById('resetEmail').value;
+                    const email = document.getElementById('resetEmail').value.trim();
 
                     if (!email) {
                         e.preventDefault();
                         alert('Please enter your email address.');
                         return;
                     }
-                    if (newPassword.length < 8) {
+
+                    if (!email.includes('@')) {
                         e.preventDefault();
-                        alert('Password must be at least 8 characters long.');
-                        return;
-                    }
-                    if (newPassword !== confirmPassword) {
-                        e.preventDefault();
-                        alert('Passwords do not match. Please check and try again.');
-                        return;
+                        alert('Please enter a valid email address.');
                     }
                 });
             }

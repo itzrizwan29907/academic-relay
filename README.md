@@ -42,7 +42,6 @@ Academic Relay aims to provide a centralized platform where students can access 
 - View assignments
 - Access notes and study materials
 - View marks and academic information
-- Access previous-year papers and other shared resources
 
 ### 👨‍🏫 Faculty Features
 
